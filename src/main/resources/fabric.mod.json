@@ -3,15 +3,15 @@
 	"id": "basic-storage",
 	"version": "${version}",
 	"name": "Basic Storage",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "Item drawers in their most vanilla-friendly form",
 	"authors": [
-		"Me!"
+		"Khazoda"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://modrinth.com/project/basic-storage",
+		"sources": "https://github.com/Khazoda/basic-storage"
 	},
-	"license": "CC0-1.0",
+	"license": "MIT",
 	"icon": "assets/basic-storage/icon.png",
 	"environment": "*",
 	"entrypoints": {
