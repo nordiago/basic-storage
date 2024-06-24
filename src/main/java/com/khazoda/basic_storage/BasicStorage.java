@@ -1,22 +1,29 @@
 package com.khazoda.basic_storage;
 
+import com.khazoda.basic_storage.registry.BlockEntityRegistry;
+import com.khazoda.basic_storage.registry.BlockRegistry;
+import com.khazoda.basic_storage.registry.ItemGroupRegistry;
 import net.fabricmc.api.ModInitializer;
 
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.Registry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.khazoda.basic_storage.Constants.BS_LOG;
+
 public class BasicStorage implements ModInitializer {
-	// This logger is used to write text to the console and the log file.
-	// It is considered best practice to use your mod id as the logger's name.
-	// That way, it's clear which mod wrote info, warnings, and errors.
-    public static final Logger LOGGER = LoggerFactory.getLogger("basic-storage");
+
+	public static int loadedRegistries = 0;
 
 	@Override
 	public void onInitialize() {
-		// This code runs as soon as Minecraft is in a mod-load-ready state.
-		// However, some things (like resources) may still be uninitialized.
-		// Proceed with mild caution.
+		BS_LOG.info("[Basic Storage] Filling crates...");
 
-		LOGGER.info("Hello Fabric world!");
+		BlockRegistry.init();
+		BlockEntityRegistry.init();
+		ItemGroupRegistry.init();
+
+		BS_LOG.info("[Basic Storage] {}/3 Crates filled!", loadedRegistries);
 	}
 }
