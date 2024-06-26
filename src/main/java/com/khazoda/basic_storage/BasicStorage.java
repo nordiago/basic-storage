@@ -1,8 +1,6 @@
 package com.khazoda.basic_storage;
 
-import com.khazoda.basic_storage.registry.BlockEntityRegistry;
-import com.khazoda.basic_storage.registry.BlockRegistry;
-import com.khazoda.basic_storage.registry.ItemGroupRegistry;
+import com.khazoda.basic_storage.registry.*;
 import net.fabricmc.api.ModInitializer;
 
 import net.minecraft.registry.Registries;
@@ -23,6 +21,8 @@ public class BasicStorage implements ModInitializer {
 		BlockRegistry.init();
 		BlockEntityRegistry.init();
 		ItemGroupRegistry.init();
+		EventRegistry.init();
+		DataComponentRegistry.init();
 
 		BS_LOG.info("[Basic Storage] {}/3 Crates filled!", loadedRegistries);
 	}
