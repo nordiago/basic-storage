@@ -14,7 +14,7 @@ import net.minecraft.util.dynamic.Codecs;
 public class DataComponentRegistry {
 
   public static final ComponentType<Integer> CRATE_STACK_SIZE = ComponentType.<Integer>builder()
-      .codec(Codecs.rangedInt(1, 1000000))
+      .codec(Codecs.rangedInt(1, 1000000000))
       .packetCodec(PacketCodecs.VAR_INT)
       .build();
 

@@ -20,8 +20,8 @@ public interface BigStackInventory extends Inventory {
 
   @Override
   default int getMaxCountPerStack() {
-    /* 1 million items per stack*/
-    return 1000000;
+    /* 1 billion items per stack*/
+    return 1000000000;
   }
 
   default public ItemStack emptyStack() {

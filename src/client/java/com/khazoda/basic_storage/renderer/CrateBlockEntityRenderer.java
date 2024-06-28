@@ -101,7 +101,7 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(180));
     matrices.translate(0, 0.3, -0.01);
 
-    String formattedCount = NumberFormatter.format(Long.parseLong(count));
+    String formattedCount = NumberFormatter.format(Integer.parseInt(count));
 
     matrices.scale(0.02f, 0.02f, 0.02f);
     textRenderer.draw(formattedCount, -textRenderer.getWidth(formattedCount) / 2f, 0, 0xffffff, false, matrices.peek().getPositionMatrix(), vertexConsumers, TextRenderer.TextLayerType.NORMAL, 0x000000, light);

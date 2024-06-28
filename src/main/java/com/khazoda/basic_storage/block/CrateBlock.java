@@ -38,7 +38,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   public static final MapCodec<CrateBlock> CODEC = CrateBlock.createCodec(CrateBlock::new);
   public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
   public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(0.7f).pistonBehavior(PistonBehavior.BLOCK);
-  public static final int crateMaxCount = 1000000;
+  public static final int crateMaxCount = 1000000000;
 
   public CrateBlock(Settings settings) {
     super(settings);
@@ -82,18 +82,23 @@ public class CrateBlock extends Block implements BlockEntityProvider {
           ItemStack playerStack = player.getMainHandStack();
 
           boolean isSneaking = player.isSneaking();
-          int amountToInsert = isSneaking ? playerStack.getCount() : 1;
+          int amountToInsert = isSneaking ? playerStack.getCount() * 1000000 : 1;
 
           if (!playerStack.isEmpty() && (crateStack.isEmpty()
-              || ItemStack.areItemsAndComponentsEqual(crateStack, playerStack)
-              && crateStack.getCount() < crateMaxCount - amountToInsert)) {
+              || ItemStack.areItemsAndComponentsEqual(crateStack, playerStack))) {
+
+            /* If stack count to insert is lower than the maximum */
+            if (crateStack.getCount() < crateMaxCount - amountToInsert) {
+
+            }
+
             player.incrementStat(Stats.USED.getOrCreateStat(playerStack.getItem()));
             ItemStack stackToInsert = playerStack.splitUnlessCreative(isSneaking ? amountToInsert : 1, player);
             if (crateBlockEntity.isEmpty()) {
               crateBlockEntity.setStack(stackToInsert);
             } else {
-              int crateCountHolder = crateStack.getCount();
-              crateStack.setCount(crateCountHolder + amountToInsert);
+              int currentCrateCount = crateStack.getCount();
+              crateStack.setCount(currentCrateCount + amountToInsert);
             }
 
             world.playSound(null, pos, SoundEvents.BLOCK_DECORATED_POT_INSERT, SoundCategory.BLOCKS, 1.0f, 0.7f + 0.5f);
@@ -105,6 +110,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
             world.emitGameEvent((Entity) player, GameEvent.BLOCK_CHANGE, pos);
             return ActionResult.SUCCESS;
           }
+
           player.sendMessage(Text.literal(crateStack.toString()));
           return ActionResult.PASS;
         }
