@@ -131,4 +131,5 @@ public class CrateBlockEntity extends BlockEntity implements BigStackInventory.B
   public BlockEntity asBlockEntity() {
     return null;
   }
+
 }

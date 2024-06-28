@@ -1,11 +1,11 @@
 package com.khazoda.basic_storage.block;
 
 import com.khazoda.basic_storage.block.entity.CrateBlockEntity;
+import com.khazoda.basic_storage.util.BlockUtils;
 import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.enums.BlockFace;
 import net.minecraft.block.piston.PistonBehavior;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ai.pathing.NavigationType;
@@ -21,11 +21,11 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.stat.Stats;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.DirectionProperty;
-import net.minecraft.state.property.EnumProperty;
 import net.minecraft.state.property.Properties;
 import net.minecraft.text.Text;
 import net.minecraft.util.*;
 import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
@@ -115,35 +115,46 @@ public class CrateBlock extends Block implements BlockEntityProvider {
 
   @Override
   protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
-
     return super.onUse(state, world, pos, player, hit);
   }
 
+  @Override
+  protected void onBlockBreakStart(BlockState state, World world, BlockPos pos, PlayerEntity player) {
+    if (!player.canModifyBlocks()) return;
 
-//  @Override
-//  protected void onBlockBreakStart(BlockState state, World world, BlockPos pos, PlayerEntity player) {
-//    if (!player.canModifyBlocks()) return;
-//
-//    Direction facing = state.get(Properties.HORIZONTAL_FACING);
-//
-//    var hit = BlockUtils.getHitResult(player, pos);
-//    if (hit.getType() == HitResult.Type.MISS) return;
-//
-//    if (facing == hit.getSide()) {
-//      /* Get Block Entity */
-//      CrateBlockEntity be = (CrateBlockEntity) world.getBlockEntity(pos);
-//      if (be == null) return;
-//      /* Get Inventory Slot */
-//      var slot = be.slot;
-//      /* If crate is empty */
-//      if (slot.getResource().isBlank()) return;
-//
-//
-//      if (world.isClient()) {
-//        player.sendMessage(Text.literal("Taking 1 Item"));
-//      }
-//    }
-//  }
+    Direction facing = state.get(Properties.HORIZONTAL_FACING);
+    var hit = BlockUtils.getHitResult(player, pos);
+    if (hit.getType() == HitResult.Type.MISS) return;
+
+    if (facing == hit.getSide()) {
+      if (!world.isClient()) {
+        CrateBlockEntity crateBlockEntity = (CrateBlockEntity) world.getBlockEntity(pos);
+        if (crateBlockEntity == null) return;
+        if (crateBlockEntity.getStack().isEmpty()) return;
+        ItemStack stackType = crateBlockEntity.getStack();
+        boolean isSneaking = player.isSneaking();
+        int amountToTake = isSneaking ? stackType.getItem().getDefaultStack().getMaxCount() : 1;
+        ItemStack stackToTake = ItemStack.EMPTY;
+
+        if (crateBlockEntity.getStack().getCount() >= amountToTake) {
+          stackToTake = crateBlockEntity.getStack().split(amountToTake);
+        } else if (crateBlockEntity.getStack().getCount() < amountToTake) {
+          stackToTake = crateBlockEntity.getStack().split(1);
+        }
+        player.giveItemStack(stackToTake);
+        crateBlockEntity.triggerUpdate();
+        world.emitGameEvent((Entity) player, GameEvent.BLOCK_CHANGE, pos);
+      }
+
+      if (world.isClient()) {
+        player.sendMessage(Text.literal("Taking 1 Item"));
+      }
+    }
+    world.playSound(null, pos, SoundEvents.BLOCK_DECORATED_POT_INSERT, SoundCategory.BLOCKS, 1.0f, 0.7f + 0.5f);
+    if (world instanceof ServerWorld serverWorld) {
+      serverWorld.spawnParticles(ParticleTypes.DUST_PLUME, (double) pos.getX() + 0.5, (double) pos.getY() + 1.2, (double) pos.getZ() + 0.5, 7, 0.0, 0.0, 0.0, 0.0);
+    }
+  }
 
   @Override
   public BlockState onBreak(World world, BlockPos pos, BlockState state, PlayerEntity player) {
