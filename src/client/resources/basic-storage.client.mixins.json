@@ -1,6 +1,6 @@
 {
 	"required": true,
-	"package": "com.khazoda.basic_storage.mixin.client",
+	"package": "com.khazoda.basic_storage.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 	],

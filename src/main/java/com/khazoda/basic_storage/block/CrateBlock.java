@@ -5,6 +5,7 @@ import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.enums.BlockFace;
 import net.minecraft.block.piston.PistonBehavior;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ai.pathing.NavigationType;
@@ -20,6 +21,7 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.stat.Stats;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.DirectionProperty;
+import net.minecraft.state.property.EnumProperty;
 import net.minecraft.state.property.Properties;
 import net.minecraft.text.Text;
 import net.minecraft.util.*;
@@ -36,6 +38,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   public static final MapCodec<CrateBlock> CODEC = CrateBlock.createCodec(CrateBlock::new);
   public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
   public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(0.7f).pistonBehavior(PistonBehavior.BLOCK);
+  public static final int crateMaxCount = 1000000;
 
   public CrateBlock(Settings settings) {
     super(settings);
@@ -54,18 +57,26 @@ public class CrateBlock extends Block implements BlockEntityProvider {
    * Shift Left Click - Remove one stack
    * */
 
+  /**
+   * Event hook instead of onUse() method in order to capture interactions while sneaking
+   */
   public static void initOnUseMethod() {
     UseBlockCallback.EVENT.register((PlayerEntity player, World world, Hand hand, BlockHitResult hit) -> {
       if (player.isSpectator()) return ActionResult.PASS;
-      if (world.getBlockState(hit.getBlockPos()).getBlock() instanceof CrateBlock) {
 
+      /* Check whether block is a crate & gather required data */
+      if (world.getBlockState(hit.getBlockPos()).getBlock() instanceof CrateBlock) {
         BlockPos pos = hit.getBlockPos();
         BlockState state = world.getBlockState(pos);
         BlockEntity be = world.getBlockEntity(pos);
+        Direction facing = state.get(Properties.HORIZONTAL_FACING);
+
+        /* Skip method if no crate block entity is attached to block hit */
         if (!(be instanceof CrateBlockEntity crateBlockEntity) || !player.canModifyBlocks()) return ActionResult.PASS;
+
+        /* Only do inventory managing logic on server */
         if (world.isClient) return ActionResult.SUCCESS;
 
-        Direction facing = state.get(Properties.HORIZONTAL_FACING);
         if (facing == hit.getSide()) {
           ItemStack crateStack = crateBlockEntity.getStack();
           ItemStack playerStack = player.getMainHandStack();
@@ -73,10 +84,9 @@ public class CrateBlock extends Block implements BlockEntityProvider {
           boolean isSneaking = player.isSneaking();
           int amountToInsert = isSneaking ? playerStack.getCount() : 1;
 
-          /* Maybe unhard-code the 1 million, put in a more stable location like a .getMaxStackSize() */
           if (!playerStack.isEmpty() && (crateStack.isEmpty()
               || ItemStack.areItemsAndComponentsEqual(crateStack, playerStack)
-              && crateStack.getCount() < 1000000 - amountToInsert)) {
+              && crateStack.getCount() < crateMaxCount - amountToInsert)) {
             player.incrementStat(Stats.USED.getOrCreateStat(playerStack.getItem()));
             ItemStack stackToInsert = playerStack.splitUnlessCreative(isSneaking ? amountToInsert : 1, player);
             if (crateBlockEntity.isEmpty()) {
@@ -91,7 +101,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
               serverWorld.spawnParticles(ParticleTypes.DUST_PLUME, (double) pos.getX() + 0.5, (double) pos.getY() + 1.2, (double) pos.getZ() + 0.5, 7, 0.0, 0.0, 0.0, 0.0);
             }
 
-            crateBlockEntity.markDirty();
+            crateBlockEntity.triggerUpdate();
             world.emitGameEvent((Entity) player, GameEvent.BLOCK_CHANGE, pos);
             return ActionResult.SUCCESS;
           }
@@ -143,6 +153,10 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   @Override
   protected List<ItemStack> getDroppedStacks(BlockState state, LootContextParameterSet.Builder builder) {
     return super.getDroppedStacks(state, builder);
+  }
+
+  public static Direction getFront(BlockState state) {
+    return state.get(FACING);
   }
 
   @Override
