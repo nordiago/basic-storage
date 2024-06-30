@@ -74,10 +74,9 @@ public class CrateBlock extends Block implements BlockEntityProvider {
         /* Skip method if no crate block entity is attached to block hit */
         if (!(be instanceof CrateBlockEntity crateBlockEntity) || !player.canModifyBlocks()) return ActionResult.PASS;
 
-        /* Only do inventory managing logic on server */
-        if (world.isClient) return ActionResult.SUCCESS;
-
         if (facing == hit.getSide()) {
+          /* Only do inventory managing logic on server */
+          if (world.isClient) return ActionResult.SUCCESS;
           ItemStack crateStack = crateBlockEntity.getStack();
           ItemStack playerStack = player.getMainHandStack();
 
