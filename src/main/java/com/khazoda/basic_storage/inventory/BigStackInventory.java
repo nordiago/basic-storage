@@ -1,5 +1,6 @@
 package com.khazoda.basic_storage.inventory;
 
+import com.khazoda.basic_storage.Constants;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.inventory.Inventory;
@@ -21,7 +22,7 @@ public interface BigStackInventory extends Inventory {
   @Override
   default int getMaxCountPerStack() {
     /* 1 billion items per stack*/
-    return 1000000000;
+    return Constants.CRATE_MAX_COUNT;
   }
 
   default public ItemStack emptyStack() {

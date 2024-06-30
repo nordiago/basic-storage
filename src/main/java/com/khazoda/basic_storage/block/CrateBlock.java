@@ -1,7 +1,9 @@
 package com.khazoda.basic_storage.block;
 
+import com.khazoda.basic_storage.Constants;
 import com.khazoda.basic_storage.block.entity.CrateBlockEntity;
 import com.khazoda.basic_storage.util.BlockUtils;
+import com.khazoda.basic_storage.util.NumberFormatter;
 import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.minecraft.block.*;
@@ -13,7 +15,10 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.loot.context.LootContextParameterSet;
+import net.minecraft.network.packet.s2c.play.SubtitleS2CPacket;
+import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.BlockSoundGroup;
 import net.minecraft.sound.SoundCategory;
@@ -38,7 +43,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   public static final MapCodec<CrateBlock> CODEC = CrateBlock.createCodec(CrateBlock::new);
   public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
   public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(0.7f).pistonBehavior(PistonBehavior.BLOCK);
-  public static final int crateMaxCount = 1000000000;
+  public static final int crateMaxCount = Constants.CRATE_MAX_COUNT;
 
   public CrateBlock(Settings settings) {
     super(settings);
@@ -77,22 +82,34 @@ public class CrateBlock extends Block implements BlockEntityProvider {
         if (facing == hit.getSide()) {
           /* Only do inventory managing logic on server */
           if (world.isClient) return ActionResult.SUCCESS;
+
           ItemStack crateStack = crateBlockEntity.getStack();
           ItemStack playerStack = player.getMainHandStack();
-
           boolean isSneaking = player.isSneaking();
-          int amountToInsert = isSneaking ? playerStack.getCount() * 1000000 : 1;
 
+          /* If player's hand isn't empty & crate is empty OR
+           *  If both player's held item and crate content item type are equal */
           if (!playerStack.isEmpty() && (crateStack.isEmpty()
               || ItemStack.areItemsAndComponentsEqual(crateStack, playerStack))) {
 
-            /* If stack count to insert is lower than the maximum */
-            if (crateStack.getCount() < crateMaxCount - amountToInsert) {
+            /* TODO: REMOVE 1 BILLION FROM HERE WHEN NOT TESTING */
+            int amountToInsert = isSneaking ? playerStack.getCount() * 1000000 : 1;
 
+            if (crateStack.getCount() < crateMaxCount - amountToInsert) {
+              amountToInsert = isSneaking ? amountToInsert : 1;
+            } else if (crateStack.getCount() > crateMaxCount - amountToInsert) {
+              /* Is not sneaking*/
+              if (amountToInsert == 1) {
+                return ActionResult.CONSUME;
+                /* Is sneaking */
+              } else {
+                amountToInsert = crateMaxCount - crateStack.getCount();
+              }
             }
 
-            player.incrementStat(Stats.USED.getOrCreateStat(playerStack.getItem()));
-            ItemStack stackToInsert = playerStack.splitUnlessCreative(isSneaking ? amountToInsert : 1, player);
+            if (amountToInsert == 0) return ActionResult.PASS;
+            ItemStack stackToInsert = playerStack.splitUnlessCreative(amountToInsert, player);
+
             if (crateBlockEntity.isEmpty()) {
               crateBlockEntity.setStack(stackToInsert);
             } else {
@@ -104,14 +121,17 @@ public class CrateBlock extends Block implements BlockEntityProvider {
             if (world instanceof ServerWorld serverWorld) {
               serverWorld.spawnParticles(ParticleTypes.DUST_PLUME, (double) pos.getX() + 0.5, (double) pos.getY() + 1.2, (double) pos.getZ() + 0.5, 7, 0.0, 0.0, 0.0, 0.0);
             }
-
             crateBlockEntity.triggerUpdate();
+
+            player.incrementStat(Stats.USED.getOrCreateStat(playerStack.getItem()));
             world.emitGameEvent((Entity) player, GameEvent.BLOCK_CHANGE, pos);
             return ActionResult.SUCCESS;
-          }
+          } else if (playerStack.isEmpty()) {
+            ServerPlayerEntity spe = (ServerPlayerEntity) player;
+            spe.sendMessageToClient(Text.literal(NumberFormatter.toFormattedNumber(crateStack.getCount()) +" "+ crateStack.getName().getString()).withColor(0xcccccc), true);
 
-          player.sendMessage(Text.literal(crateStack.toString()));
-          return ActionResult.PASS;
+            return ActionResult.PASS;
+          }
         }
       }
       return ActionResult.PASS;
