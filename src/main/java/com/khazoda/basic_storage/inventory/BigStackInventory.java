@@ -69,12 +69,13 @@ public interface BigStackInventory extends Inventory {
     }
   }
 
-  public static interface BigStackBlockEntityInventory
+  interface BigStackBlockEntityInventory
       extends BigStackInventory {
-    public BlockEntity asBlockEntity();
+
+    BlockEntity asBlockEntity();
 
     @Override
-    default public boolean canPlayerUse(PlayerEntity player) {
+    default boolean canPlayerUse(PlayerEntity player) {
       return Inventory.canPlayerUse(this.asBlockEntity(), player);
     }
   }

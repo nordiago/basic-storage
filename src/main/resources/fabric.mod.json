@@ -12,7 +12,7 @@
 		"sources": "https://github.com/Khazoda/basic-storage"
 	},
 	"license": "MIT",
-	"icon": "assets/basic-storage/icon.png",
+	"icon": "assets/basicstorage/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
@@ -22,7 +22,7 @@
 			"com.khazoda.basic_storage.BasicStorageClient"
 		],
 		"fabric-datagen": [
-			"com.khazoda.basic_storage.BasicStorageDataGenerator"
+			"com.khazoda.basic_storage.datagen.BasicStorageDataGenerator"
 		]
 	},
 	"mixins": [

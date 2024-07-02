@@ -2,9 +2,11 @@ package com.khazoda.basic_storage.registry;
 
 import com.khazoda.basic_storage.BasicStorage;
 import com.khazoda.basic_storage.Constants;
+import com.khazoda.basic_storage.structure.CrateContentsComponent;
 import com.mojang.serialization.Codec;
 import net.minecraft.component.ComponentType;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.item.ItemStack;
 import net.minecraft.network.codec.PacketCodecs;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
@@ -18,9 +20,15 @@ public class DataComponentRegistry {
       .packetCodec(PacketCodecs.VAR_INT)
       .build();
 
+  public static final ComponentType<CrateContentsComponent> CRATE_CONTENTS = ComponentType.<CrateContentsComponent>builder()
+      .codec(CrateContentsComponent.CODEC)
+      .packetCodec(CrateContentsComponent.PACKET_CODEC)
+      .cache()
+      .build();
+
   public static void init() {
     Registry.register(Registries.DATA_COMPONENT_TYPE, Identifier.of(Constants.BS_NAMESPACE, "crate_stack_size"), CRATE_STACK_SIZE);
-
+    Registry.register(Registries.DATA_COMPONENT_TYPE, Identifier.of(Constants.BS_NAMESPACE, "crate_contents"), CRATE_CONTENTS);
     BasicStorage.loadedRegistries += 1;
   }
 }

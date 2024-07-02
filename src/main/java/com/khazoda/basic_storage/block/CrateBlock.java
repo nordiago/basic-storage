@@ -8,12 +8,14 @@ import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.ShulkerBoxBlockEntity;
 import net.minecraft.block.piston.PistonBehavior;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ai.pathing.NavigationType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.loot.context.LootContextParameterSet;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -156,21 +158,10 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     Direction facing = state.get(Properties.HORIZONTAL_FACING);
 
     if (facing == hit.getSide()) {
-      ItemStack stackType = crateBlockEntity.getStack();
-      boolean isSneaking = player.isSneaking();
-      int amountToTake = isSneaking ? stackType.getItem().getDefaultStack().getMaxCount() : 1;
-      ItemStack stackToTake = ItemStack.EMPTY;
+      ItemStack crateStack = crateBlockEntity.getStack();
+      int attemptedWithdrawalAmount = player.isSneaking() ? crateStack.getItem().getDefaultStack().getMaxCount() : 1;
 
-      if (crateBlockEntity.getStack().getCount() >= amountToTake) {
-        stackToTake = crateBlockEntity.decreaseStack(amountToTake);
-      } else if (crateBlockEntity.getStack().getCount() < amountToTake) {
-        stackToTake = crateBlockEntity.decreaseStack(crateBlockEntity.getStack().getCount());
-      }
-      player.giveItemStack(stackToTake);
-
-      if (crateBlockEntity.getStack().getCount() == 0) {
-        crateBlockEntity.setStack(ItemStack.EMPTY);
-      }
+      player.giveItemStack(calculateWithdrawalItemStack(crateBlockEntity, attemptedWithdrawalAmount, crateStack));
 
       crateBlockEntity.triggerUpdate();
 
@@ -181,8 +172,29 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     }
   }
 
+  private static ItemStack calculateWithdrawalItemStack(CrateBlockEntity be, int withdrawalAmount, ItemStack currentCrateStack) {
+    ItemStack withdrawalStack;
+    int crateStackCount = be.getStack().getCount();
+    /* Crate still has items after withdrawal */
+    if (crateStackCount >= withdrawalAmount) {
+      withdrawalStack = be.decreaseStack(withdrawalAmount);
+      be.setStackBeforeBroken(currentCrateStack.copyWithCount(crateStackCount - withdrawalAmount));
+
+    /* All items removed from crate after withdrawal */
+    } else {
+      withdrawalStack = be.decreaseStack(crateStackCount);
+      be.setStackBeforeBroken(ItemStack.EMPTY);
+    }
+    /* Flush crate if empty */
+    if (be.getStack().getCount() == 0) {
+      be.setStack(ItemStack.EMPTY);
+    }
+    return withdrawalStack;
+  }
+
   @Override
   public BlockState onBreak(World world, BlockPos pos, BlockState state, PlayerEntity player) {
+
     return super.onBreak(world, pos, state, player);
   }
 
@@ -219,7 +231,13 @@ public class CrateBlock extends Block implements BlockEntityProvider {
 
   @Override
   protected void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
-    ItemScatterer.onStateReplaced(state, newState, world, pos);
+    if (state.isOf(newState.getBlock())) {
+      return;
+    }
+    BlockEntity blockEntity = world.getBlockEntity(pos);
+    if (blockEntity instanceof CrateBlockEntity) {
+      world.updateComparators(pos, state.getBlock());
+    }
     super.onStateReplaced(state, world, pos, newState, moved);
   }
 
