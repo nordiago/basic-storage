@@ -66,10 +66,12 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
   public void renderCrateInfo(ItemVariant item, @Nullable String amount, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int seed, BlockPos pos, World world) {
     var player = MinecraftClient.getInstance().player;
     var playerPos = player == null ? Vec3d.ofCenter(pos) : player.getPos();
-
-    if (pos.isWithinDistance(playerPos, 10) && amount != null)
+    if (amount == null || amount.equals("0")) {
+      return;
+    }
+    if (pos.isWithinDistance(playerPos, 40))
       renderText(amount, light, matrices, vertexConsumers);
-    if (pos.isWithinDistance(playerPos, 10))
+    if (pos.isWithinDistance(playerPos, 40))
       renderItem(item, light, matrices, vertexConsumers, world, seed);
   }
 

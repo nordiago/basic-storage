@@ -38,7 +38,6 @@ public class CrateBlockEntity extends BlockEntity implements BigStackInventory.B
   public CrateBlockEntity(BlockPos pos, BlockState state) {
     super(BlockEntityRegistry.CRATE_BLOCK_ENTITY, pos, state);
     this.stack = ItemStack.EMPTY;
-
   }
 
   /* NBT Sync */
@@ -47,6 +46,8 @@ public class CrateBlockEntity extends BlockEntity implements BigStackInventory.B
     super.writeNbt(nbt, registryLookup);
     if (!this.stack.isEmpty()) {
       nbt.put("item", this.stack.encode(registryLookup));
+    } else {
+      removeFromCopiedStackNbt(nbt);
     }
   }
 
@@ -54,7 +55,7 @@ public class CrateBlockEntity extends BlockEntity implements BigStackInventory.B
   protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
     super.readNbt(nbt, registryLookup);
     if (nbt.contains("item", 10)) {
-      this.stack = (ItemStack) ItemStack.fromNbt(registryLookup, nbt.getCompound("item")).orElse(ItemStack.EMPTY);
+      this.stack = ItemStack.fromNbt(registryLookup, nbt.getCompound("item")).orElse(ItemStack.EMPTY);
     } else {
       this.stack = ItemStack.EMPTY;
     }

@@ -15,8 +15,6 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.loot.context.LootContextParameterSet;
-import net.minecraft.network.packet.s2c.play.SubtitleS2CPacket;
-import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -128,7 +126,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
             return ActionResult.SUCCESS;
           } else if (playerStack.isEmpty()) {
             ServerPlayerEntity spe = (ServerPlayerEntity) player;
-            spe.sendMessageToClient(Text.literal(NumberFormatter.toFormattedNumber(crateStack.getCount()) +" "+ crateStack.getName().getString()).withColor(0xcccccc), true);
+            spe.sendMessageToClient(Text.literal(NumberFormatter.toFormattedNumber(crateStack.getCount()) + " " + crateStack.getName().getString()).withColor(0xcccccc), true);
 
             return ActionResult.PASS;
           }
@@ -145,39 +143,41 @@ public class CrateBlock extends Block implements BlockEntityProvider {
 
   @Override
   protected void onBlockBreakStart(BlockState state, World world, BlockPos pos, PlayerEntity player) {
-    if (!player.canModifyBlocks()) return;
+//      ServerPlayerEntity player = (ServerPlayerEntity) player;
+//      ServerWorld world = (ServerWorld) world;
+    CrateBlockEntity crateBlockEntity = (CrateBlockEntity) world.getBlockEntity(pos);
 
-    Direction facing = state.get(Properties.HORIZONTAL_FACING);
+    if (!player.canModifyBlocks()) return;
+    if (crateBlockEntity == null) return;
+    if (crateBlockEntity.getStack().isEmpty()) return;
+
     var hit = BlockUtils.getHitResult(player, pos);
     if (hit.getType() == HitResult.Type.MISS) return;
+    Direction facing = state.get(Properties.HORIZONTAL_FACING);
 
     if (facing == hit.getSide()) {
-      if (!world.isClient()) {
-        CrateBlockEntity crateBlockEntity = (CrateBlockEntity) world.getBlockEntity(pos);
-        if (crateBlockEntity == null) return;
-        if (crateBlockEntity.getStack().isEmpty()) return;
-        ItemStack stackType = crateBlockEntity.getStack();
-        boolean isSneaking = player.isSneaking();
-        int amountToTake = isSneaking ? stackType.getItem().getDefaultStack().getMaxCount() : 1;
-        ItemStack stackToTake = ItemStack.EMPTY;
+      ItemStack stackType = crateBlockEntity.getStack();
+      boolean isSneaking = player.isSneaking();
+      int amountToTake = isSneaking ? stackType.getItem().getDefaultStack().getMaxCount() : 1;
+      ItemStack stackToTake = ItemStack.EMPTY;
 
-        if (crateBlockEntity.getStack().getCount() >= amountToTake) {
-          stackToTake = crateBlockEntity.getStack().split(amountToTake);
-        } else if (crateBlockEntity.getStack().getCount() < amountToTake) {
-          stackToTake = crateBlockEntity.getStack().split(1);
-        }
-        player.giveItemStack(stackToTake);
-        crateBlockEntity.triggerUpdate();
-        world.emitGameEvent((Entity) player, GameEvent.BLOCK_CHANGE, pos);
+      if (crateBlockEntity.getStack().getCount() >= amountToTake) {
+        stackToTake = crateBlockEntity.decreaseStack(amountToTake);
+      } else if (crateBlockEntity.getStack().getCount() < amountToTake) {
+        stackToTake = crateBlockEntity.decreaseStack(crateBlockEntity.getStack().getCount());
+      }
+      player.giveItemStack(stackToTake);
+
+      if (crateBlockEntity.getStack().getCount() == 0) {
+        crateBlockEntity.setStack(ItemStack.EMPTY);
       }
 
-      if (world.isClient()) {
-        player.sendMessage(Text.literal("Taking 1 Item"));
-      }
-    }
-    world.playSound(null, pos, SoundEvents.BLOCK_DECORATED_POT_INSERT, SoundCategory.BLOCKS, 1.0f, 0.7f + 0.5f);
-    if (world instanceof ServerWorld serverWorld) {
-      serverWorld.spawnParticles(ParticleTypes.DUST_PLUME, (double) pos.getX() + 0.5, (double) pos.getY() + 1.2, (double) pos.getZ() + 0.5, 7, 0.0, 0.0, 0.0, 0.0);
+      crateBlockEntity.triggerUpdate();
+
+      world.playSound(null, pos, SoundEvents.BLOCK_DECORATED_POT_INSERT, SoundCategory.BLOCKS, 1.0f, 0.7f + 0.5f);
+      if (world instanceof ServerWorld serverWorld)
+        serverWorld.spawnParticles(ParticleTypes.DUST_PLUME, (double) pos.getX() + 0.5, (double) pos.getY() + 1.2, (double) pos.getZ() + 0.5, 7, 0.0, 0.0, 0.0, 0.0);
+      world.emitGameEvent((Entity) player, GameEvent.BLOCK_CHANGE, pos);
     }
   }
 
