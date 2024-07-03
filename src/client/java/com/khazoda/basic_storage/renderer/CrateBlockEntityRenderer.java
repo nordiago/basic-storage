@@ -101,7 +101,7 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
   public void renderText(String count, int light, MatrixStack matrices, VertexConsumerProvider vertexConsumers) {
     matrices.push();
     matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(180));
-    matrices.translate(0, 0.3, -0.01);
+    matrices.translate(0, 0.25, -0.01);
 
     String formattedCount = NumberFormatter.format(Integer.parseInt(count));
 

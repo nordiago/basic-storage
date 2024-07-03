@@ -2,20 +2,23 @@ package com.khazoda.basic_storage.block;
 
 import com.khazoda.basic_storage.Constants;
 import com.khazoda.basic_storage.block.entity.CrateBlockEntity;
+import com.khazoda.basic_storage.registry.DataComponentRegistry;
+import com.khazoda.basic_storage.structure.CrateContentsComponent;
 import com.khazoda.basic_storage.util.BlockUtils;
 import com.khazoda.basic_storage.util.NumberFormatter;
 import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.ShulkerBoxBlockEntity;
 import net.minecraft.block.piston.PistonBehavior;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ai.pathing.NavigationType;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.item.tooltip.TooltipType;
 import net.minecraft.loot.context.LootContextParameterSet;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -27,6 +30,7 @@ import net.minecraft.stat.Stats;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.DirectionProperty;
 import net.minecraft.state.property.Properties;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.*;
 import net.minecraft.util.hit.BlockHitResult;
@@ -42,7 +46,7 @@ import java.util.List;
 public class CrateBlock extends Block implements BlockEntityProvider {
   public static final MapCodec<CrateBlock> CODEC = CrateBlock.createCodec(CrateBlock::new);
   public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
-  public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(0.7f).pistonBehavior(PistonBehavior.BLOCK);
+  public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(3f).pistonBehavior(PistonBehavior.BLOCK);
   public static final int crateMaxCount = Constants.CRATE_MAX_COUNT;
 
   public CrateBlock(Settings settings) {
@@ -89,15 +93,12 @@ public class CrateBlock extends Block implements BlockEntityProvider {
 
           /* If player's hand isn't empty & crate is empty OR
            *  If both player's held item and crate content item type are equal */
-          if (!playerStack.isEmpty() && (crateStack.isEmpty()
+          if (!holdingBlacklistedStack(playerStack) && (crateStack.isEmpty()
               || ItemStack.areItemsAndComponentsEqual(crateStack, playerStack))) {
 
-            /* TODO: REMOVE 1 BILLION FROM HERE WHEN NOT TESTING */
-            int amountToInsert = isSneaking ? playerStack.getCount() * 1000000 : 1;
-
-            if (crateStack.getCount() < crateMaxCount - amountToInsert) {
-              amountToInsert = isSneaking ? amountToInsert : 1;
-            } else if (crateStack.getCount() > crateMaxCount - amountToInsert) {
+            int amountToInsert = isSneaking ? playerStack.getCount() : 1;
+            /* If inserting stack would overcap the crate (>1billion) */
+            if (crateStack.getCount() > crateMaxCount - amountToInsert) {
               /* Is not sneaking*/
               if (amountToInsert == 1) {
                 return ActionResult.CONSUME;
@@ -122,6 +123,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
               serverWorld.spawnParticles(ParticleTypes.DUST_PLUME, (double) pos.getX() + 0.5, (double) pos.getY() + 1.2, (double) pos.getZ() + 0.5, 7, 0.0, 0.0, 0.0, 0.0);
             }
             crateBlockEntity.triggerUpdate();
+            world.updateComparators(pos, state.getBlock());
 
             player.incrementStat(Stats.USED.getOrCreateStat(playerStack.getItem()));
             world.emitGameEvent((Entity) player, GameEvent.BLOCK_CHANGE, pos);
@@ -138,6 +140,14 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     });
   }
 
+  /* Add blacklisted items to this method */
+  /* Stop them being inserted into crates */
+  public static boolean holdingBlacklistedStack(ItemStack stack) {
+    if (stack.isEmpty()) return true;
+    if (stack.isDamaged()) return true;
+    return false;
+  }
+
   @Override
   protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
     return super.onUse(state, world, pos, player, hit);
@@ -145,8 +155,6 @@ public class CrateBlock extends Block implements BlockEntityProvider {
 
   @Override
   protected void onBlockBreakStart(BlockState state, World world, BlockPos pos, PlayerEntity player) {
-//      ServerPlayerEntity player = (ServerPlayerEntity) player;
-//      ServerWorld world = (ServerWorld) world;
     CrateBlockEntity crateBlockEntity = (CrateBlockEntity) world.getBlockEntity(pos);
 
     if (!player.canModifyBlocks()) return;
@@ -161,9 +169,10 @@ public class CrateBlock extends Block implements BlockEntityProvider {
       ItemStack crateStack = crateBlockEntity.getStack();
       int attemptedWithdrawalAmount = player.isSneaking() ? crateStack.getItem().getDefaultStack().getMaxCount() : 1;
 
-      player.giveItemStack(calculateWithdrawalItemStack(crateBlockEntity, attemptedWithdrawalAmount, crateStack));
+      player.getInventory().offerOrDrop(withdrawItemStack(crateBlockEntity, attemptedWithdrawalAmount, crateStack));
 
       crateBlockEntity.triggerUpdate();
+      world.updateComparators(pos, state.getBlock());
 
       world.playSound(null, pos, SoundEvents.BLOCK_DECORATED_POT_INSERT, SoundCategory.BLOCKS, 1.0f, 0.7f + 0.5f);
       if (world instanceof ServerWorld serverWorld)
@@ -172,7 +181,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     }
   }
 
-  private static ItemStack calculateWithdrawalItemStack(CrateBlockEntity be, int withdrawalAmount, ItemStack currentCrateStack) {
+  private static ItemStack withdrawItemStack(CrateBlockEntity be, int withdrawalAmount, ItemStack currentCrateStack) {
     ItemStack withdrawalStack;
     int crateStackCount = be.getStack().getCount();
     /* Crate still has items after withdrawal */
@@ -180,7 +189,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
       withdrawalStack = be.decreaseStack(withdrawalAmount);
       be.setStackBeforeBroken(currentCrateStack.copyWithCount(crateStackCount - withdrawalAmount));
 
-    /* All items removed from crate after withdrawal */
+      /* All items removed from crate after withdrawal */
     } else {
       withdrawalStack = be.decreaseStack(crateStackCount);
       be.setStackBeforeBroken(ItemStack.EMPTY);
@@ -194,13 +203,33 @@ public class CrateBlock extends Block implements BlockEntityProvider {
 
   @Override
   public BlockState onBreak(World world, BlockPos pos, BlockState state, PlayerEntity player) {
-
+    BlockEntity be = world.getBlockEntity(pos);
+    if (!(be == null)) {
+      CrateBlockEntity cbe = (CrateBlockEntity) be;
+      if (!world.isClient() && player.isCreative() && !cbe.getStack().isEmpty()) {
+        cbe.setStackBeforeBroken(cbe.getStack().copyWithCount(cbe.getStack().getCount()));
+        getDroppedStacks(state, (ServerWorld) world, pos, cbe, player, player.getStackInHand(Hand.MAIN_HAND))
+            .forEach(stack -> ItemScatterer.spawn(world, pos.getX(), pos.getY(), pos.getZ(), stack));
+      }
+    }
     return super.onBreak(world, pos, state, player);
   }
 
   @Override
   protected List<ItemStack> getDroppedStacks(BlockState state, LootContextParameterSet.Builder builder) {
     return super.getDroppedStacks(state, builder);
+  }
+
+  @Override
+  public void appendTooltip(ItemStack stack, Item.TooltipContext context, List<Text> tooltip, TooltipType options) {
+    CrateContentsComponent contentsComponent = stack.get(DataComponentRegistry.CRATE_CONTENTS);
+    if (contentsComponent == null) return;
+    ItemVariant item = contentsComponent.item();
+    int amount = contentsComponent.count();
+
+    MutableText contentsText = Text.literal(NumberFormatter.toFormattedNumber(amount) + "x " + item.getItem().getName().getString()).withColor(0xcccccc);
+
+    tooltip.add(contentsText);
   }
 
   public static Direction getFront(BlockState state) {
@@ -251,10 +280,24 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     return state.rotate(mirror.getRotation(state.get(FACING)));
   }
 
+  /**
+   * Comparator Logic
+   */
   @Override
   public boolean hasComparatorOutput(BlockState state) {
     return true;
   }
+
+  @Override
+  public int getComparatorOutput(BlockState state, World world, BlockPos pos) {
+    BlockEntity be = world.getBlockEntity(pos);
+    if (be instanceof CrateBlockEntity cbe) {
+      return BlockUtils.getComparatorOutputStrength(cbe.getStack().getCount());
+    } else {
+      return 0;
+    }
+  }
+
 
   @Override
   public MapCodec<CrateBlock> getCodec() {

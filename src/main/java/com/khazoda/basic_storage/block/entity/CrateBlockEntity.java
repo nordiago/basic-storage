@@ -83,7 +83,6 @@ public class CrateBlockEntity extends BlockEntity implements BigStackInventory.B
 
   public void triggerUpdate() {
     if (world instanceof ServerWorld serverWorld) {
-      // Using this instead of markDirty to handle cases where drawer is in unloaded chunks (why doesn't minecraft save in unloaded chunks?)
       serverWorld.getWorldChunk(pos).setNeedsSaving(true);
       var state = getCachedState();
       serverWorld.updateListeners(pos, state, state, Block.NOTIFY_LISTENERS);
