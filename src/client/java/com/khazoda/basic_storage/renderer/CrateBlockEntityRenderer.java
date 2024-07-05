@@ -2,6 +2,7 @@ package com.khazoda.basic_storage.renderer;
 
 import com.khazoda.basic_storage.block.CrateBlock;
 import com.khazoda.basic_storage.block.entity.CrateBlockEntity;
+import com.khazoda.basic_storage.mixin.RenderSystemAccessor;
 import com.khazoda.basic_storage.util.NumberFormatter;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.minecraft.block.Block;
@@ -27,12 +28,13 @@ import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.util.Objects;
 
 public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockEntity> {
-  private static final Quaternionf ITEM_LIGHT_ROTATION_3D = RotationAxis.POSITIVE_X.rotationDegrees(-125).mul(RotationAxis.POSITIVE_Y.rotationDegrees(260));
-  private static final Quaternionf ITEM_LIGHT_ROTATION_FLAT = RotationAxis.POSITIVE_X.rotationDegrees(-225);
+  private static final Quaternionf ITEM_LIGHT_ROTATION_3D = RotationAxis.POSITIVE_X.rotationDegrees(-15).mul(RotationAxis.POSITIVE_Y.rotationDegrees(15));
+  private static final Quaternionf ITEM_LIGHT_ROTATION_FLAT = RotationAxis.POSITIVE_X.rotationDegrees(-45);
 
   private final ItemRenderer itemRenderer;
   private final TextRenderer textRenderer;
@@ -79,6 +81,7 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     if (item.isBlank()) return;
 
     matrices.push();
+    matrices.translate(0f, 0.125f, 0f);
     matrices.scale(0.5f, 0.5f, 0.5f);
     matrices.scale(0.75f, 0.75f, 1);
     matrices.peek().getPositionMatrix().mul(new Matrix4f().scale(1, 1, 0.01f));
@@ -86,6 +89,10 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     var stack = item.toStack();
     var model = itemRenderer.getModel(stack, world, null, seed);
 
+    var lights = new Vector3f[2];
+    System.arraycopy(RenderSystemAccessor.getShaderLightDirections(), 0, lights, 0, 2);
+
+    /* Code is reachable, not sure why IDEA marks it as inaccessible */
     if (model.isSideLit()) {
       matrices.peek().getNormalMatrix().rotate(ITEM_LIGHT_ROTATION_3D);
       DiffuseLighting.enableGuiDepthLighting();
@@ -95,13 +102,15 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     }
 
     itemRenderer.renderItem(stack, ModelTransformationMode.GUI, false, matrices, vertexConsumers, light, OverlayTexture.DEFAULT_UV, model);
+
+    System.arraycopy(lights, 0, RenderSystemAccessor.getShaderLightDirections(), 0, 2);
     matrices.pop();
   }
 
   public void renderText(String count, int light, MatrixStack matrices, VertexConsumerProvider vertexConsumers) {
     matrices.push();
     matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(180));
-    matrices.translate(0, 0.25, -0.01);
+    matrices.translate(0f, 0.21f, -0.01f);
 
     String formattedCount = NumberFormatter.format(Integer.parseInt(count));
 
@@ -117,7 +126,7 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
       default -> dir.getUnitVector();
     };
     matrices.translate(pos.x / 2 + 0.5, pos.y / 2 + 0.5, pos.z / 2 + 0.5);
-    // We only transform the position matrix as the normals have to stay in the old configuration for item lighting
+
     matrices.peek().getPositionMatrix().rotate(dir.getRotationQuaternion());
     switch (face) {
       case FLOOR -> matrices.peek().getPositionMatrix().rotate(RotationAxis.POSITIVE_X.rotationDegrees(-90));

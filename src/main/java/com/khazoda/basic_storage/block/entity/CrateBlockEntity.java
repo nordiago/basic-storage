@@ -1,5 +1,6 @@
 package com.khazoda.basic_storage.block.entity;
 
+import com.khazoda.basic_storage.Constants;
 import com.khazoda.basic_storage.inventory.BigStackInventory;
 import com.khazoda.basic_storage.registry.BlockEntityRegistry;
 import com.khazoda.basic_storage.registry.DataComponentRegistry;
@@ -9,6 +10,7 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.component.ComponentMap;
+import net.minecraft.component.DataComponentTypes;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
@@ -78,7 +80,10 @@ public class CrateBlockEntity extends BlockEntity implements BigStackInventory.B
 
     int count = contents.count();
     ItemVariant itemVariant = contents.item();
-    this.stack = new ItemStack(itemVariant.getItem(), count);
+
+    var s = new ItemStack(itemVariant.getItem(), count);
+    s.set(DataComponentTypes.MAX_STACK_SIZE, Constants.CRATE_MAX_COUNT);
+    this.stack = s;
   }
 
   public void triggerUpdate() {
@@ -95,7 +100,13 @@ public class CrateBlockEntity extends BlockEntity implements BigStackInventory.B
   }
 
   @Override
+  public ItemStack getStack(int slot) {
+    return this.stack;
+  }
+
+  @Override
   public void setStack(ItemStack stack) {
+    stack.set(DataComponentTypes.MAX_STACK_SIZE, Constants.CRATE_MAX_COUNT);
     this.stack = stack;
     triggerUpdate();
   }
@@ -103,6 +114,7 @@ public class CrateBlockEntity extends BlockEntity implements BigStackInventory.B
   public void setStackBeforeBroken(ItemStack stack) {
     this.stack_before_broken = stack;
   }
+
 
   @Override
   public ItemStack decreaseStack(int count) {

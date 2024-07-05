@@ -9,12 +9,15 @@ import com.khazoda.basic_storage.util.NumberFormatter;
 import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
+import net.fabricmc.fabric.api.transfer.v1.item.PlayerInventoryStorage;
+import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.piston.PistonBehavior;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ai.pathing.NavigationType;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
@@ -89,6 +92,8 @@ public class CrateBlock extends Block implements BlockEntityProvider {
 
           ItemStack crateStack = crateBlockEntity.getStack();
           ItemStack playerStack = player.getMainHandStack();
+          PlayerInventory playerInventory = player.getInventory();
+          PlayerInventoryStorage playerInventoryStorage = PlayerInventoryStorage.of(player);
           boolean isSneaking = player.isSneaking();
 
           /* If player's hand isn't empty & crate is empty OR
@@ -96,7 +101,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
           if (!holdingBlacklistedStack(playerStack) && (crateStack.isEmpty()
               || ItemStack.areItemsAndComponentsEqual(crateStack, playerStack))) {
 
-            int amountToInsert = isSneaking ? playerStack.getCount() : 1;
+            int amountToInsert = isSneaking ? playerInventory.count(playerStack.getItem()) : 1;
             /* If inserting stack would overcap the crate (>1billion) */
             if (crateStack.getCount() > crateMaxCount - amountToInsert) {
               /* Is not sneaking*/
@@ -109,15 +114,22 @@ public class CrateBlock extends Block implements BlockEntityProvider {
             }
 
             if (amountToInsert == 0) return ActionResult.PASS;
-            ItemStack stackToInsert = playerStack.splitUnlessCreative(amountToInsert, player);
 
-            if (crateBlockEntity.isEmpty()) {
-              crateBlockEntity.setStack(stackToInsert);
-            } else {
-              int currentCrateCount = crateStack.getCount();
-              crateStack.setCount(currentCrateCount + amountToInsert);
+//            ItemStack stackToInsert = playerStack.splitUnlessCreative(amountToInsert, player);
+
+            try (var t = Transaction.openOuter()) {
+              ItemStack stackToAdd = new ItemStack(playerStack.getItem(),amountToInsert);
+              /* Remove stacks from player inventory */
+              playerInventoryStorage.extract(ItemVariant.of(playerStack), amountToInsert, t);
+              t.commit();
+
+              if (crateBlockEntity.isEmpty()) {
+                crateBlockEntity.setStack(stackToAdd);
+              } else {
+                int currentCrateCount = crateStack.getCount();
+                crateStack.setCount(currentCrateCount + amountToInsert);
+              }
             }
-
             world.playSound(null, pos, SoundEvents.BLOCK_DECORATED_POT_INSERT, SoundCategory.BLOCKS, 1.0f, 0.7f + 0.5f);
             if (world instanceof ServerWorld serverWorld) {
               serverWorld.spawnParticles(ParticleTypes.DUST_PLUME, (double) pos.getX() + 0.5, (double) pos.getY() + 1.2, (double) pos.getZ() + 0.5, 7, 0.0, 0.0, 0.0, 0.0);

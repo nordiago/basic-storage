@@ -3,6 +3,7 @@
   "package": "com.khazoda.basic_storage.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "HopperBlockEntityMixin",
     "MixinDataComponentTypes",
     "MixinItemStack"
   ],

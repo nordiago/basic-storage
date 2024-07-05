@@ -25,6 +25,10 @@ public interface BigStackInventory extends Inventory {
     return Constants.CRATE_MAX_COUNT;
   }
 
+  default public int getMaxCount(ItemStack stack) {
+    return this.getMaxCountPerStack();
+  }
+
   default public ItemStack emptyStack() {
     return this.decreaseStack(this.getMaxCountPerStack());
   }
