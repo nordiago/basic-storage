@@ -7,7 +7,6 @@ import com.khazoda.basic_storage.util.NumberFormatter;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.minecraft.block.Block;
 import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.enums.BlockFace;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.DiffuseLighting;
@@ -56,7 +55,7 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     if (!shouldRenderBE(be, dir)) return;
 
     matrices.push();
-    alignMatrices(matrices, horizontalDir, BlockFace.WALL);
+    alignMatrices(matrices, horizontalDir);
 
     light = WorldRenderer.getLightmapCoordinates(Objects.requireNonNull(be.getWorld()), pos.offset(dir));
     renderCrateInfo(itemVariant, itemCount, matrices, vertexConsumers, light, (int) pos.asLong(), pos, world);
@@ -69,12 +68,20 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     }
     var player = MinecraftClient.getInstance().player;
     var playerPos = player == null ? Vec3d.ofCenter(pos) : player.getPos();
-
-    if (pos.isWithinDistance(playerPos, 40)) {
+    var distance = 0;
+    if (player != null) {
+      if (player.isUsingSpyglass()) {
+        distance = 100;
+      } else {
+        distance = 40;
+      }
+    }
+    if (pos.isWithinDistance(playerPos, distance)) {
       renderText(amount, light, matrices, vertexConsumers);
       renderItem(item, light, matrices, vertexConsumers, world, seed);
     }
   }
+
   public void renderItem(ItemVariant item, int light, MatrixStack matrices, VertexConsumerProvider vertexConsumers, World world, int seed) {
     if (item.isBlank()) return;
 
@@ -113,23 +120,14 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     String formattedCount = NumberFormatter.format(Integer.parseInt(count));
 
     matrices.scale(0.02f, 0.02f, 0.02f);
-    textRenderer.draw(formattedCount, -textRenderer.getWidth(formattedCount) / 2f, 0, 0xffffff, false, matrices.peek().getPositionMatrix(), vertexConsumers, TextRenderer.TextLayerType.NORMAL, 0x000000, light);
+    textRenderer.draw(formattedCount, -textRenderer.getWidth(formattedCount) / 2f, 0, 0xFFDD99, false, matrices.peek().getPositionMatrix(), vertexConsumers, TextRenderer.TextLayerType.NORMAL, 0x000000, light);
     matrices.pop();
   }
 
-  protected void alignMatrices(MatrixStack matrices, Direction dir, BlockFace face) {
-    var pos = switch (face) {
-      case FLOOR -> Direction.UP.getUnitVector();
-      case CEILING -> Direction.DOWN.getUnitVector();
-      default -> dir.getUnitVector();
-    };
+  protected void alignMatrices(MatrixStack matrices, Direction dir) {
+    var pos = dir.getUnitVector();
     matrices.translate(pos.x / 2 + 0.5, pos.y / 2 + 0.5, pos.z / 2 + 0.5);
-
     matrices.peek().getPositionMatrix().rotate(dir.getRotationQuaternion());
-    switch (face) {
-      case FLOOR -> matrices.peek().getPositionMatrix().rotate(RotationAxis.POSITIVE_X.rotationDegrees(-90));
-      case CEILING -> matrices.peek().getPositionMatrix().rotate(RotationAxis.POSITIVE_X.rotationDegrees(90));
-    }
     matrices.peek().getPositionMatrix().rotate(RotationAxis.POSITIVE_X.rotationDegrees(-90));
     matrices.translate(0, 0, 0.01);
   }

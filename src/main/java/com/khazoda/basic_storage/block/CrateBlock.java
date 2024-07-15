@@ -1,23 +1,21 @@
 package com.khazoda.basic_storage.block;
 
-import com.khazoda.basic_storage.Constants;
 import com.khazoda.basic_storage.block.entity.CrateBlockEntity;
-import com.khazoda.basic_storage.registry.BlockEntityRegistry;
 import com.khazoda.basic_storage.registry.BlockRegistry;
 import com.khazoda.basic_storage.registry.DataComponentRegistry;
 import com.khazoda.basic_storage.storage.CrateSlot;
-import com.khazoda.basic_storage.storage.CrateStorage;
 import com.khazoda.basic_storage.structure.CrateSlotComponent;
 import com.khazoda.basic_storage.util.BlockUtils;
 import com.khazoda.basic_storage.util.NumberFormatter;
 import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
-import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.item.PlayerInventoryStorage;
 import net.fabricmc.fabric.api.transfer.v1.storage.StorageUtil;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
-import net.minecraft.block.*;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockEntityProvider;
+import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.piston.PistonBehavior;
 import net.minecraft.entity.Entity;
@@ -26,11 +24,9 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
 import net.minecraft.item.tooltip.TooltipType;
 import net.minecraft.loot.context.LootContextParameterSet;
 import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.BlockSoundGroup;
 import net.minecraft.sound.SoundCategory;
@@ -47,7 +43,6 @@ import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
-import net.minecraft.world.WorldView;
 import net.minecraft.world.event.GameEvent;
 import org.jetbrains.annotations.Nullable;
 
@@ -221,8 +216,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   /* Stop them being inserted into crates */
   public static boolean holdingBlacklistedStack(ItemStack stack) {
     if (stack.isEmpty()) return true;
-    if (stack.isDamaged()) return true;
-    return false;
+    return stack.isDamaged();
   }
 
   @Override
@@ -250,7 +244,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
       world.playSound(null, pos, SoundEvents.BLOCK_DECORATED_POT_INSERT, SoundCategory.BLOCKS, 1.0f, 0.7f + 0.5f);
       if (world instanceof ServerWorld serverWorld)
         serverWorld.spawnParticles(ParticleTypes.DUST_PLUME, (double) pos.getX() + 0.5, (double) pos.getY() + 1.2, (double) pos.getZ() + 0.5, 7, 0.0, 0.0, 0.0, 0.0);
-      world.emitGameEvent((Entity) player, GameEvent.BLOCK_CHANGE, pos);
+      world.emitGameEvent(player, GameEvent.BLOCK_CHANGE, pos);
     }
   }
 
@@ -300,7 +294,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     ItemVariant item = contentsComponent.item();
     int amount = contentsComponent.count();
 
-    MutableText contentsText = Text.literal(NumberFormatter.toFormattedNumber(amount) + "x " + item.getItem().getName().getString()).withColor(0xcccccc);
+    MutableText contentsText = Text.literal(NumberFormatter.toFormattedNumber(amount) + "x " + item.getItem().getName().getString()).withColor(0xFFDD99);
 
     tooltip.add(contentsText);
   }
