@@ -1,3 +1,12 @@
 {
-  "parent": "basicstorage:block/crate"
+  "parent": "basicstorage:block/crate",
+  "overrides": [
+    {
+      "predicate": {
+        "basicstorage:has_items": 1
+      },
+      "model": "basicstorage:item/crate_filled"
+    }
+  ]
 }
+

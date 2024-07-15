@@ -15,7 +15,8 @@
             {
               "function": "minecraft:copy_components",
               "include": [
-                "basicstorage:crate_contents"
+                "basicstorage:crate_contents",
+                "minecraft:fire_resistant"
               ],
               "source": "block_entity"
             }

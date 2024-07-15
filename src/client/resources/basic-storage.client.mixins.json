@@ -1,6 +1,6 @@
 {
 	"required": true,
-	"package": "com.khazoda.basic_storage.mixin",
+	"package": "com.khazoda.basicstorage.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 		"RenderSystemAccessor"
