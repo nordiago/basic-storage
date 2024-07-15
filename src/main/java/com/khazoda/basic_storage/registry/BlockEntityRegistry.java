@@ -3,7 +3,7 @@ package com.khazoda.basic_storage.registry;
 import com.khazoda.basic_storage.BasicStorage;
 import com.khazoda.basic_storage.Constants;
 import com.khazoda.basic_storage.block.entity.CrateBlockEntity;
-import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
+import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
@@ -17,7 +17,11 @@ public class BlockEntityRegistry {
       BlockEntityType.Builder.create(CrateBlockEntity::new,
           BlockRegistry.CRATE_BLOCK).build());
 
+
   public static void init() {
+    /* Lets crate work with hoppers and other item transfer */
+    ItemStorage.SIDED.registerForBlockEntity((blockEntity, direction) -> blockEntity.storage, CRATE_BLOCK_ENTITY);
+
     BasicStorage.loadedRegistries += 1;
   }
 }

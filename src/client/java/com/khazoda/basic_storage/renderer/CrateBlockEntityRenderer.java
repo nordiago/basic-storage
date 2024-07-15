@@ -50,9 +50,8 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     var dir = CrateBlock.getFront(be.getCachedState());
     var world = be.getWorld();
 
-    ItemStack crateItem = be.getStack();
-    ItemVariant itemVariant = ItemVariant.of(crateItem);
-    String count = String.valueOf(be.getStack().getCount());
+    ItemVariant itemVariant = be.storage.getResource();
+    String itemCount = String.valueOf(be.storage.getAmount());
     BlockPos pos = be.getPos();
 
     if (!shouldRenderBE(be, dir)) return;
@@ -61,20 +60,21 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     alignMatrices(matrices, horizontalDir, BlockFace.WALL);
 
     light = WorldRenderer.getLightmapCoordinates(Objects.requireNonNull(be.getWorld()), pos.offset(dir));
-    renderCrateInfo(itemVariant, count, matrices, vertexConsumers, light, (int) pos.asLong(), pos, world);
+    renderCrateInfo(itemVariant, itemCount, matrices, vertexConsumers, light, (int) pos.asLong(), pos, world);
     matrices.pop();
   }
 
   public void renderCrateInfo(ItemVariant item, @Nullable String amount, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int seed, BlockPos pos, World world) {
-    var player = MinecraftClient.getInstance().player;
-    var playerPos = player == null ? Vec3d.ofCenter(pos) : player.getPos();
     if (amount == null || amount.equals("0")) {
       return;
     }
-    if (pos.isWithinDistance(playerPos, 40))
+    var player = MinecraftClient.getInstance().player;
+    var playerPos = player == null ? Vec3d.ofCenter(pos) : player.getPos();
+
+    if (pos.isWithinDistance(playerPos, 40)) {
       renderText(amount, light, matrices, vertexConsumers);
-    if (pos.isWithinDistance(playerPos, 40))
       renderItem(item, light, matrices, vertexConsumers, world, seed);
+    }
   }
 
   public void renderItem(ItemVariant item, int light, MatrixStack matrices, VertexConsumerProvider vertexConsumers, World world, int seed) {

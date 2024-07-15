@@ -2,7 +2,7 @@ package com.khazoda.basic_storage.registry;
 
 import com.khazoda.basic_storage.BasicStorage;
 import com.khazoda.basic_storage.Constants;
-import com.khazoda.basic_storage.structure.CrateContentsComponent;
+import com.khazoda.basic_storage.structure.CrateSlotComponent;
 import net.minecraft.component.ComponentType;
 import net.minecraft.network.codec.PacketCodecs;
 import net.minecraft.registry.Registries;
@@ -17,9 +17,9 @@ public class DataComponentRegistry {
       .packetCodec(PacketCodecs.VAR_INT)
       .build();
 
-  public static final ComponentType<CrateContentsComponent> CRATE_CONTENTS = ComponentType.<CrateContentsComponent>builder()
-      .codec(CrateContentsComponent.CODEC)
-      .packetCodec(CrateContentsComponent.PACKET_CODEC)
+  public static final ComponentType<CrateSlotComponent> CRATE_CONTENTS = ComponentType.<CrateSlotComponent>builder()
+      .codec(CrateSlotComponent.CODEC)
+      .packetCodec(CrateSlotComponent.PACKET_CODEC)
       .cache()
       .build();
 

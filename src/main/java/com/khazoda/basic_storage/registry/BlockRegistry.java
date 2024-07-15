@@ -9,8 +9,6 @@ import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.registry.entry.RegistryEntry;
 
-import static com.khazoda.basic_storage.Constants.BS_LOG;
-
 public class BlockRegistry {
   public static final Item.Settings defaultItemSettings = new Item.Settings().maxCount(64);
 

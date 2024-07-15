@@ -17,10 +17,4 @@ public abstract class MixinItemStack {
   private static int modifyMaxStack(int orig) {
     return Math.max(orig, Constants.CRATE_MAX_COUNT);
   }
-
-  @Inject(method = "getMaxCount", at = @At("HEAD"), cancellable = true)
-  private void getMaxCountForCrateItemStack(CallbackInfoReturnable<Integer> cir) {
-    var c = ((ComponentHolder) this).get(DataComponentTypes.MAX_STACK_SIZE);
-    cir.setReturnValue(((ComponentHolder) this).getOrDefault(DataComponentRegistry.CRATE_MAX_STACK_SIZE, ((ComponentHolder) this).getOrDefault(DataComponentTypes.MAX_STACK_SIZE, 1)));
-  }
 }
