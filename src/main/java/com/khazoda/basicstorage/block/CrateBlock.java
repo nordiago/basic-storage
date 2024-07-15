@@ -100,9 +100,11 @@ public class CrateBlock extends Block implements BlockEntityProvider {
         int inserted = 0;
         if (player.isSneaking()) {
           inserted = insertMaximum(player, playerStack, slot, t);
+          world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.BLOCK_CHISELED_BOOKSHELF_BREAK, SoundCategory.BLOCKS, 2f, ((float) Math.abs(Math.sin(slot.getAmount() % 32))) + 0.8f, false);
         } else if (!player.isSneaking()) {
           if (holdingBlacklistedStack(playerStack, slot)) return listExactContents(player, slot);
           if (!holdingBlacklistedStack(playerStack, slot)) inserted = insertOne(playerStack, slot, t);
+          world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.BLOCK_CHISELED_BOOKSHELF_BREAK, SoundCategory.BLOCKS, 2f, ((float) Math.abs(Math.sin(slot.getAmount() % 32))) + 0.8f, false);
         }
         if (inserted == 0) {
           t.abort();
@@ -198,13 +200,13 @@ public class CrateBlock extends Block implements BlockEntityProvider {
         t.abort();
         return;
       }
+      world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.BLOCK_CHISELED_BOOKSHELF_BREAK, SoundCategory.BLOCKS, 2f, ((float) Math.abs(Math.sin(cbe.storage.getAmount() % 32))) + 0.8f, false);
       player.getInventory().offerOrDrop(item.toStack(extracted));
       t.commit();
     }
     cbe.refresh();
     state.updateNeighbors(world, pos, 1);
     world.updateComparators(pos, state.getBlock());
-    world.playSound(null, pos, SoundEvents.BLOCK_DECORATED_POT_INSERT, SoundCategory.BLOCKS, 1.0f, 0.7f + 0.5f);
     world.emitGameEvent(player, GameEvent.BLOCK_CHANGE, pos);
   }
 
