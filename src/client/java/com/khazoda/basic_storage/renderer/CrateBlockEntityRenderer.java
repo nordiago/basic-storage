@@ -19,7 +19,6 @@ import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
 import net.minecraft.client.render.item.ItemRenderer;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.RotationAxis;
@@ -76,7 +75,6 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
       renderItem(item, light, matrices, vertexConsumers, world, seed);
     }
   }
-
   public void renderItem(ItemVariant item, int light, MatrixStack matrices, VertexConsumerProvider vertexConsumers, World world, int seed) {
     if (item.isBlank()) return;
 
