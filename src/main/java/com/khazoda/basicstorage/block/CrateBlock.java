@@ -16,6 +16,7 @@ import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockEntityProvider;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.MapColor;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.enums.NoteBlockInstrument;
 import net.minecraft.block.piston.PistonBehavior;
@@ -61,7 +62,7 @@ import static java.lang.Math.toIntExact;
 public class CrateBlock extends Block implements BlockEntityProvider {
   public static final MapCodec<CrateBlock> CODEC = CrateBlock.createCodec(CrateBlock::new);
   public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
-  public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(5f).pistonBehavior(PistonBehavior.BLOCK).instrument(NoteBlockInstrument.BASS);
+  public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(2.5f).pistonBehavior(PistonBehavior.BLOCK).instrument(NoteBlockInstrument.BASS).mapColor(MapColor.OAK_TAN);
 
 
   public CrateBlock(Settings settings) {
@@ -100,17 +101,16 @@ public class CrateBlock extends Block implements BlockEntityProvider {
         int inserted = 0;
         if (player.isSneaking()) {
           inserted = insertMaximum(player, playerStack, slot, t);
-          world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.BLOCK_CHISELED_BOOKSHELF_BREAK, SoundCategory.BLOCKS, 2f, ((float) Math.abs(Math.sin(slot.getAmount() % 32))) + 0.8f, false);
         } else if (!player.isSneaking()) {
           if (holdingBlacklistedStack(playerStack, slot)) return listExactContents(player, slot);
           if (!holdingBlacklistedStack(playerStack, slot)) inserted = insertOne(playerStack, slot, t);
-          world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.BLOCK_CHISELED_BOOKSHELF_BREAK, SoundCategory.BLOCKS, 2f, ((float) Math.abs(Math.sin(slot.getAmount() % 32))) + 0.8f, false);
         }
         if (inserted == 0) {
           t.abort();
           return ActionResult.CONSUME_PARTIAL;
         }
         t.commit();
+        world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.BLOCK_CHISELED_BOOKSHELF_BREAK, SoundCategory.BLOCKS, 2f, ((float) Math.abs(Math.sin(slot.getAmount() % 32))) + 0.8f, false);
         state.updateNeighbors(world, pos, 1);
         cbe.refresh();
         world.updateComparators(pos, state.getBlock());
@@ -200,9 +200,9 @@ public class CrateBlock extends Block implements BlockEntityProvider {
         t.abort();
         return;
       }
-      world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.BLOCK_CHISELED_BOOKSHELF_BREAK, SoundCategory.BLOCKS, 2f, ((float) Math.abs(Math.sin(cbe.storage.getAmount() % 32))) + 0.8f, false);
       player.getInventory().offerOrDrop(item.toStack(extracted));
       t.commit();
+      world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.BLOCK_CHISELED_BOOKSHELF_BREAK, SoundCategory.BLOCKS, 2f, ((float) Math.abs(Math.sin(cbe.storage.getAmount() % 32))) + 0.8f, false);
     }
     cbe.refresh();
     state.updateNeighbors(world, pos, 1);

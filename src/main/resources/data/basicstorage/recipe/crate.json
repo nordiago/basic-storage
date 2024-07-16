@@ -2,7 +2,7 @@
   "type": "minecraft:crafting_shaped",
   "pattern": [
     "#/#",
-    "/L/",
+    "/ /",
     "#/#"
   ],
   "key": {
@@ -11,9 +11,6 @@
     },
     "/": {
       "item": "minecraft:stick"
-    },
-    "L": {
-      "tag": "minecraft:logs"
     }
   },
   "result": {

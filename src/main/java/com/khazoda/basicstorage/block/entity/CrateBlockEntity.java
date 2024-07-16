@@ -47,7 +47,6 @@ public class CrateBlockEntity extends BlockEntity {
     var storageNbt = new NbtCompound();
     storage.writeNbt(storageNbt, registryLookup);
     nbt.put("crateStack", storageNbt);
-
   }
 
 
@@ -99,5 +98,4 @@ public class CrateBlockEntity extends BlockEntity {
     }
     this.refresh();
   }
-
 }

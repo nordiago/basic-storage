@@ -9,7 +9,6 @@ import net.minecraft.item.Items;
 import static com.khazoda.basicstorage.Constants.BS_LOG;
 
 public class BasicStorage implements ModInitializer {
-
   public static int loadedRegistries = 0;
 
   @Override
@@ -23,6 +22,9 @@ public class BasicStorage implements ModInitializer {
     DataComponentRegistry.init();
 
     ItemGroupEvents.modifyEntriesEvent(ItemGroups.REDSTONE).register(content -> {
+      content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK);
+    });
+    ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(content -> {
       content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK);
     });
 

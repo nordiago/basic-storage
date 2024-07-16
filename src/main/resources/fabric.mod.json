@@ -3,13 +3,14 @@
   "id": "basic-storage",
   "version": "${version}",
   "name": "Basic Storage",
-  "description": "Item drawers in their most vanilla-friendly form",
+  "description": "Vanilla-friendly mass item storage",
   "authors": [
     "Khazoda"
   ],
   "contact": {
     "homepage": "https://modrinth.com/project/basic-storage",
-    "sources": "https://github.com/Khazoda/basic-storage"
+    "sources": "https://github.com/Khazoda/basic-storage",
+    "issues": "https://github.com/Khazoda/basic-storage/issues"
   },
   "license": "MIT",
   "icon": "assets/basicstorage/icon.png",

@@ -13,7 +13,6 @@ public class SoundRegistry {
 
 
   public static void init() {
-
     BasicStorage.loadedRegistries += 1;
   }
 
