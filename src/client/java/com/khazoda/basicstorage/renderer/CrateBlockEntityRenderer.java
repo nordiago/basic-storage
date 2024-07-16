@@ -82,6 +82,7 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     }
   }
 
+  @SuppressWarnings("UnreachableCode")
   public void renderItem(ItemVariant item, int light, MatrixStack matrices, VertexConsumerProvider vertexConsumers, World world, int seed) {
     if (item.isBlank()) return;
 
@@ -97,7 +98,6 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     var lights = new Vector3f[2];
     System.arraycopy(RenderSystemAccessor.getShaderLightDirections(), 0, lights, 0, 2);
 
-    /* Code is reachable, not sure why IDEA marks it as inaccessible */
     if (model.isSideLit()) {
       matrices.peek().getNormalMatrix().rotate(ITEM_LIGHT_ROTATION_3D);
       DiffuseLighting.enableGuiDepthLighting();
