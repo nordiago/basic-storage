@@ -10,7 +10,7 @@ import net.minecraft.util.Identifier;
 public class SoundRegistry {
   public static final SoundEvent INSERT_ONE = register("insert_one");
   public static final SoundEvent INSERT_MANY = register("insert_many");
-
+  public static final SoundEvent EXTRACT_MANY = register("extract_many");
 
   public static void init() {
     BasicStorage.loadedRegistries += 1;

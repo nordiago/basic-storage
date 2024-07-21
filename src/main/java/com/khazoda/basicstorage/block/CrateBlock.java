@@ -3,6 +3,7 @@ package com.khazoda.basicstorage.block;
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.registry.DataComponentRegistry;
+import com.khazoda.basicstorage.registry.SoundRegistry;
 import com.khazoda.basicstorage.storage.CrateSlot;
 import com.khazoda.basicstorage.structure.CrateSlotComponent;
 import com.khazoda.basicstorage.util.BlockUtils;
@@ -48,6 +49,7 @@ import net.minecraft.world.event.GameEvent;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Random;
 
 import static java.lang.Math.toIntExact;
 
@@ -64,9 +66,11 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
   public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(2.5f).pistonBehavior(PistonBehavior.BLOCK).instrument(NoteBlockInstrument.BASS).mapColor(MapColor.OAK_TAN);
 
+  private static Random random;
 
   public CrateBlock(Settings settings) {
     super(settings);
+    random = new Random();
     setDefaultState(this.stateManager.getDefaultState().with(FACING, Direction.NORTH));
   }
 
@@ -110,7 +114,10 @@ public class CrateBlock extends Block implements BlockEntityProvider {
           return ActionResult.CONSUME_PARTIAL;
         }
         t.commit();
-        world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.BLOCK_CHISELED_BOOKSHELF_BREAK, SoundCategory.BLOCKS, 2f, ((float) Math.abs(Math.sin(slot.getAmount() % 32))) + 0.8f, false);
+        if (inserted == 1)
+          world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.INSERT_ONE, SoundCategory.BLOCKS, 1f, 1f + ((-1 + random.nextFloat() * (1 + 1)) / 10), false);
+        if (inserted > 1)
+          world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.INSERT_MANY, SoundCategory.BLOCKS, 1f, 1f, false);
         state.updateNeighbors(world, pos, 1);
         cbe.refresh();
         world.updateComparators(pos, state.getBlock());
@@ -202,7 +209,12 @@ public class CrateBlock extends Block implements BlockEntityProvider {
       }
       player.getInventory().offerOrDrop(item.toStack(extracted));
       t.commit();
-      world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.BLOCK_CHISELED_BOOKSHELF_BREAK, SoundCategory.BLOCKS, 2f, ((float) Math.abs(Math.sin(cbe.storage.getAmount() % 32))) + 0.8f, false);
+      if (extracted == 1)
+        world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.INSERT_ONE, SoundCategory.BLOCKS, 0.6f, 1.2f + ((-1 + random.nextFloat() * (1 + 1)) / 10), false);
+      if (extracted > 1)
+        world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.EXTRACT_MANY, SoundCategory.BLOCKS, 0.75f, 1f, false);
+
+      world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.ENTITY_ITEM_PICKUP, SoundCategory.BLOCKS, 0.35f, 1f, false);
     }
     cbe.refresh();
     state.updateNeighbors(world, pos, 1);

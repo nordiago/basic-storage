@@ -8,5 +8,10 @@
     "sounds": [
       "basicstorage:insert_many"
     ]
+  },
+  "extract_many": {
+    "sounds": [
+      "basicstorage:extract_many"
+    ]
   }
 }
