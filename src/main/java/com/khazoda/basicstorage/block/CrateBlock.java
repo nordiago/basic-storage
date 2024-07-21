@@ -327,8 +327,8 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   private static ActionResult debugInitOnUseMethod(PlayerEntity player, CrateSlot slot) {
     try (Transaction t = Transaction.openOuter()) {
       if (slot.isBlank()) return ActionResult.PASS;
-      if (player.isSneaking()) slot.extract(slot.getResource(), 50000000, t);
-      if (!player.isSneaking()) slot.insert(slot.getResource(), 100000000, t);
+      if (player.isSneaking()) slot.extract(slot.getResource(), 10000, t);
+      if (!player.isSneaking()) slot.insert(slot.getResource(), 100000, t);
       t.commit();
     }
     slot.update();
