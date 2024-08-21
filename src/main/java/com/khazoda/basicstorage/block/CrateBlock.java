@@ -104,10 +104,11 @@ public class CrateBlock extends Block implements BlockEntityProvider {
       try (var t = Transaction.openOuter()) {
         int inserted = 0;
         if (player.isSneaking()) {
+          if (!canInsert(playerStack, slot, true)) return listExactContents(player, slot);
           inserted = insertMaximum(player, playerStack, slot, t);
         } else if (!player.isSneaking()) {
-          if (holdingBlacklistedStack(playerStack, slot)) return listExactContents(player, slot);
-          if (!holdingBlacklistedStack(playerStack, slot)) inserted = insertOne(playerStack, slot, t);
+          if (!canInsert(playerStack, slot, false)) return listExactContents(player, slot);
+          inserted = insertOne(playerStack, slot, t);
         }
         if (inserted == 0) {
           t.abort();
@@ -177,10 +178,17 @@ public class CrateBlock extends Block implements BlockEntityProvider {
    **/
   /* Add blacklisted items to this method */
   /* Stop them being inserted into crates */
-  public static boolean holdingBlacklistedStack(ItemStack stack, CrateSlot slot) {
-    if (stack.isEmpty()) return true;
-    if (stack.isDamaged()) return true;
-    return !stack.isOf(slot.getResource().getItem()) && !slot.isBlank();
+  public static boolean canInsert(ItemStack stack, CrateSlot slot, boolean insertingMultiple) {
+    if (insertingMultiple) {
+      return true; // This is ok as another check is done when actually inserting the items in CrateSlot#insert
+    } else {
+      if (stack.isEmpty()) return false;
+      if (stack.isDamaged()) return false;
+      if (stack.isOf(BlockRegistry.CRATE_BLOCK.asItem())
+          && stack.contains(DataComponentRegistry.CRATE_CONTENTS)) return false;
+      if (!ItemVariant.of(stack).equals(slot.getResource()) && !slot.isBlank()) return false;
+      return slot.isBlank() || stack.isOf(slot.getResource().getItem());
+    }
   }
 
   /**
@@ -253,8 +261,8 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     ItemVariant item = contentsComponent.item();
     int amount = contentsComponent.count();
 
-    MutableText contents_line_1 = Text.literal(NumberFormatter.toFormattedNumber(amount)).withColor(0xFFDD99);
     MutableText contents_line_2 = Text.literal(item.getItem().getName().getString()).withColor(0xCCAA77);
+    MutableText contents_line_1 = Text.literal("x" + NumberFormatter.toFormattedNumber(amount)).withColor(0xFFDD99);
 
     tooltip.add(contents_line_1);
     tooltip.add(contents_line_2);

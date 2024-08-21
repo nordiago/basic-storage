@@ -9,12 +9,10 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.component.ComponentMap;
-import net.minecraft.component.DataComponentTypes;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Unit;
 import net.minecraft.util.math.BlockPos;
 
 public class CrateBlockEntity extends BlockEntity {
@@ -83,14 +81,13 @@ public class CrateBlockEntity extends BlockEntity {
         .add(DataComponentRegistry.CRATE_CONTENTS,
             new CrateSlotComponent(
                 this.storage.getResource(),
-                (int) this.storage.getAmount()))
-        .add(DataComponentTypes.FIRE_RESISTANT, Unit.INSTANCE);
+                (int) this.storage.getAmount()));
   }
 
   @Override
   protected void readComponents(BlockEntity.ComponentsAccess components) {
     CrateSlotComponent contents = components.getOrDefault(DataComponentRegistry.CRATE_CONTENTS, CrateSlotComponent.DEFAULT);
-    if (contents == null) return;
+    if (contents == null || contents.count() == 0) return;
     try (Transaction t = Transaction.openOuter()) {
       if (!this.storage.isBlank()) return; // Prevents creative block pick from duping items
       this.storage.insert(contents.item(), contents.count(), t);

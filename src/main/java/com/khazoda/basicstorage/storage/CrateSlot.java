@@ -13,6 +13,8 @@ import net.minecraft.nbt.NbtOps;
 import net.minecraft.registry.RegistryOps;
 import net.minecraft.registry.RegistryWrapper;
 
+import static com.khazoda.basicstorage.block.CrateBlock.canInsert;
+
 public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> implements SingleSlotStorage<ItemVariant>, CrateStorage {
   private ItemVariant item = ItemVariant.blank();
   private int count;
@@ -45,7 +47,8 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> imp
 
   @Override
   public long insert(ItemVariant resource, long maxAmount, TransactionContext transaction) {
-    if (!resource.equals(item) && !item.isBlank()) return 0;
+    if (!canInsert(resource.toStack(), this, maxAmount > 1)) return 0;
+    if (maxAmount > 1 && !resource.equals(this.getResource()) && !this.isBlank()) return 0;
     int inserted = (int) Math.min(getCapacity() - count, maxAmount);
     if (inserted > 0) {
       updateSnapshots(transaction);
