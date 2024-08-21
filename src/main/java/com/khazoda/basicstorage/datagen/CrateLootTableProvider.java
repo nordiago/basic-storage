@@ -5,7 +5,6 @@ import com.khazoda.basicstorage.registry.DataComponentRegistry;
 import net.fabricmc.fabric.api.datagen.v1.FabricDataOutput;
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricBlockLootTableProvider;
 import net.minecraft.block.Block;
-import net.minecraft.component.DataComponentTypes;
 import net.minecraft.loot.LootPool;
 import net.minecraft.loot.LootTable;
 import net.minecraft.loot.entry.ItemEntry;
@@ -30,6 +29,6 @@ public class CrateLootTableProvider extends FabricBlockLootTableProvider {
     return LootTable.builder().pool(addSurvivesExplosionCondition(drop, LootPool.builder().rolls(ConstantLootNumberProvider.create(1.0f))
         .with(ItemEntry.builder(drop)
             .apply(CopyComponentsLootFunction.builder(CopyComponentsLootFunction.Source.BLOCK_ENTITY)
-                .include(DataComponentRegistry.CRATE_CONTENTS).include(DataComponentTypes.FIRE_RESISTANT)))));
+                .include(DataComponentRegistry.CRATE_CONTENTS)))));
   }
 }
