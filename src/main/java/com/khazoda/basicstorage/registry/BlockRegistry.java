@@ -10,11 +10,13 @@ import net.minecraft.item.Item;
 import net.minecraft.registry.entry.RegistryEntry;
 
 public class BlockRegistry {
-  public static final Item.Settings crateItemSettings = new Item.Settings().maxCount(64);
+  public static final Item.Settings crateItemSettings = new Item.Settings().maxCount(64).fireproof();
 
-  public static final CrateBlock CRATE_BLOCK = register("crate", new CrateBlock(), crateItemSettings);
+  public static final Block CRATE_BLOCK = register("crate", new CrateBlock(), crateItemSettings);
+
 
   public static void init() {
+
     BasicStorage.loadedRegistries += 1;
   }
 
