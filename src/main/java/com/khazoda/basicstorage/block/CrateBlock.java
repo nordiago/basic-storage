@@ -180,7 +180,8 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   /* Stop them being inserted into crates */
   public static boolean canInsert(ItemStack stack, CrateSlot slot, boolean insertingMultiple) {
     if (insertingMultiple) {
-      return true; // This is ok as another check is done when actually inserting the items in CrateSlot#insert
+      return !slot.isBlank() || canInsert(stack, slot, false); // Prevents stacked undesirables from being insertable when sneaking
+// This is ok as another check is done when actually inserting the items in CrateSlot#insert
     } else {
       if (stack.isEmpty()) return false;
       if (stack.isDamaged()) return false;
