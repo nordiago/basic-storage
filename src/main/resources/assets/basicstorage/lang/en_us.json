@@ -1,7 +1,7 @@
 {
-  "basicstorage.itemGroup": "Basic Storage",
   "block.basicstorage.crate": "Crate",
   "message.basicstorage.crate.empty": "Empty",
   "command.basicstorage.root": "You are using §6Basic Storage §r",
-  "command.basicstorage.wiki": "Visit the Basic Storage wiki"
+  "command.basicstorage.wiki": "Visit the Basic Storage wiki",
+  "basicstorage.itemGroup": "Basic Storage"
 }
