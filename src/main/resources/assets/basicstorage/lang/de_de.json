@@ -2,5 +2,6 @@
   "block.basicstorage.crate": "Kiste",
   "message.basicstorage.crate.empty": "Leer",
   "command.basicstorage.root": "Sie benutzen §6Basic Storage §r",
-  "command.basicstorage.wiki": "Besuchen Sie das Basic Storage Wiki"
+  "command.basicstorage.wiki": "Besuchen Sie das Basic Storage Wiki",
+  "basicstorage.itemGroup": "Basic Storage"
 }
