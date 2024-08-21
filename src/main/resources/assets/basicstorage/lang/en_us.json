@@ -1,4 +1,5 @@
 {
+  "basicstorage.itemGroup": "Basic Storage",
   "block.basicstorage.crate": "Crate",
   "message.basicstorage.crate.empty": "Empty",
   "command.basicstorage.root": "You are using §6Basic Storage §r",
