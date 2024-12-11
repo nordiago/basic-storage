@@ -27,8 +27,8 @@ public class BasicStorage implements ModInitializer {
     EventRegistry.init();
     DataComponentRegistry.init();
 
-    ItemGroupEvents.modifyEntriesEvent(ItemGroups.REDSTONE).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK));
-    ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK));
+    ItemGroupEvents.modifyEntriesEvent(ItemGroups.REDSTONE).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_DISTRIBUTOR_BLOCK));
+    ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_DISTRIBUTOR_BLOCK));
 
     BS_LOG.info("[Basic Storage] {}/6 Crates filled!", loadedRegistries);
   }

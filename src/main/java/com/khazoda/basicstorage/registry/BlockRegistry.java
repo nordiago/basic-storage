@@ -2,6 +2,7 @@ package com.khazoda.basicstorage.registry;
 
 import com.khazoda.basicstorage.BasicStorage;
 import com.khazoda.basicstorage.block.CrateBlock;
+import com.khazoda.basicstorage.block.CrateDistributorBlock;
 import com.khazoda.basicstorage.util.RegistryHelper;
 import net.minecraft.block.Block;
 import net.minecraft.item.ArmorMaterial;
@@ -13,6 +14,7 @@ public class BlockRegistry {
   public static final Item.Settings crateItemSettings = new Item.Settings().maxCount(64).fireproof();
 
   public static final Block CRATE_BLOCK = register("crate", new CrateBlock(), crateItemSettings);
+  public static final Block CRATE_DISTRIBUTOR_BLOCK = register("crate_distributor", new CrateDistributorBlock(), crateItemSettings);
 
 
   public static void init() {

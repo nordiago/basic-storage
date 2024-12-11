@@ -1,5 +1,6 @@
 {
   "block.basicstorage.crate": "Crate",
+  "block.basicstorage.crate_distributor": "Crate Distributor",
   "message.basicstorage.crate.empty": "Empty",
   "command.basicstorage.root": "You are using §6Basic Storage §r",
   "command.basicstorage.wiki": "Visit the Basic Storage wiki",
