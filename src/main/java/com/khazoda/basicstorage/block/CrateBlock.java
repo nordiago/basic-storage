@@ -1,6 +1,7 @@
 package com.khazoda.basicstorage.block;
 
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
+import com.khazoda.basicstorage.block.entity.CrateDistributorBlockEntity;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.registry.DataComponentRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
@@ -21,6 +22,7 @@ import net.minecraft.block.MapColor;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.enums.NoteBlockInstrument;
 import net.minecraft.block.piston.PistonBehavior;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.pathing.NavigationType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
@@ -45,6 +47,7 @@ import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldAccess;
 import net.minecraft.world.event.GameEvent;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,7 +67,8 @@ import static java.lang.Math.toIntExact;
 public class CrateBlock extends Block implements BlockEntityProvider {
   public static final MapCodec<CrateBlock> CODEC = CrateBlock.createCodec(CrateBlock::new);
   public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
-  public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(2.5f).pistonBehavior(PistonBehavior.BLOCK).instrument(NoteBlockInstrument.BASS).mapColor(MapColor.OAK_TAN);
+  public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(2.5f)
+      .pistonBehavior(PistonBehavior.BLOCK).instrument(NoteBlockInstrument.BASS).mapColor(MapColor.OAK_TAN);
 
   private static Random random;
 
@@ -78,47 +82,92 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     this(defaultSettings);
   }
 
+  @Override
+  public void onPlaced(World world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
+    super.onPlaced(world, pos, state, placer, itemStack);
+    notifyNearbyDistributors(world, pos);
+  }
+
+  @Override
+  public void onBroken(WorldAccess world, BlockPos pos, BlockState state) {
+    super.onBroken(world, pos, state);
+    if (world instanceof World) {
+      notifyNearbyDistributors((World) world, pos);
+    }
+  }
+
+  private static void notifyNearbyDistributors(World world, BlockPos pos) {
+    // Search for distributors within MAX_RADIUS blocks and force them to re-cache crates
+    int scanRadius = CrateDistributorBlockEntity.MAX_RADIUS;
+    BlockPos.iterate(
+        pos.add(-scanRadius, -scanRadius, -scanRadius),
+        pos.add(scanRadius, scanRadius, scanRadius)).forEach(checkPos -> {
+      BlockEntity be = world.getBlockEntity(checkPos);
+      if (be instanceof CrateDistributorBlockEntity distributor) {
+        distributor.markCacheForUpdate();
+      }
+    });
+  }
 
   /**
-   * Event hook instead of onUse() method in order to capture interactions while sneaking
+   * Event hook instead of onUse() method in order to capture interactions while
+   * sneaking
    */
   public static void initOnUseMethod() {
-    /* Method is fired on every block right click, so immediate check for crate block class is needed */
+    /*
+     * Method is fired on every block right click, so immediate check for crate
+     * block class is needed
+     */
     UseBlockCallback.EVENT.register((PlayerEntity player, World world, Hand hand, BlockHitResult hit) -> {
-      if (!world.getBlockState(hit.getBlockPos()).isOf(BlockRegistry.CRATE_BLOCK)) return ActionResult.PASS;
-      if (!player.canModifyBlocks() || player.isSpectator()) return ActionResult.PASS;
+      if (!world.getBlockState(hit.getBlockPos()).isOf(BlockRegistry.CRATE_BLOCK))
+        return ActionResult.PASS;
+      if (!player.canModifyBlocks() || player.isSpectator())
+        return ActionResult.PASS;
 
       BlockPos pos = hit.getBlockPos();
       BlockState state = world.getBlockState(pos);
       BlockEntity be = world.getBlockEntity(pos);
       Direction facing = state.get(Properties.HORIZONTAL_FACING);
 
-      if (be == null) return ActionResult.PASS;
-      if (facing != hit.getSide()) return ActionResult.PASS;
+      if (be == null)
+        return ActionResult.PASS;
+      if (facing != hit.getSide())
+        return ActionResult.PASS;
 
       CrateBlockEntity cbe = (CrateBlockEntity) be;
       ItemStack playerStack = player.getMainHandStack();
       CrateSlot slot = cbe.storage;
-      if (playerStack.isOf(Items.DEBUG_STICK)) return debugInitOnUseMethod(player, slot);
+      boolean slotWasBlank = slot.isBlank();
+
+      if (playerStack.isOf(Items.DEBUG_STICK))
+        return debugInitOnUseMethod(player, slot);
 
       try (var t = Transaction.openOuter()) {
         int inserted = 0;
         if (player.isSneaking()) {
-          if (!canInsert(playerStack, slot, true)) return listExactContents(player, slot);
+          if (!canInsert(playerStack, slot, true))
+            return listExactContents(player, slot);
           inserted = insertMaximum(player, playerStack, slot, t);
         } else if (!player.isSneaking()) {
-          if (!canInsert(playerStack, slot, false)) return listExactContents(player, slot);
+          if (!canInsert(playerStack, slot, false))
+            return listExactContents(player, slot);
           inserted = insertOne(playerStack, slot, t);
         }
         if (inserted == 0) {
           t.abort();
           return ActionResult.CONSUME_PARTIAL;
         }
+
+        /* Rebuild cache for nearby distributors in case this crate needs to be added to the network */
+        if (inserted > 0 && slotWasBlank) notifyNearbyDistributors(world, pos);
+
         t.commit();
         if (inserted == 1)
-          world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.INSERT_ONE, SoundCategory.BLOCKS, 1f, 1f + ((-1 + random.nextFloat() * (1 + 1)) / 10), false);
+          world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.INSERT_ONE, SoundCategory.BLOCKS, 1f,
+              1f + ((-1 + random.nextFloat() * (1 + 1)) / 10), false);
         if (inserted > 1)
-          world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.INSERT_MANY, SoundCategory.BLOCKS, 1f, 1f, false);
+          world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.INSERT_MANY, SoundCategory.BLOCKS, 1f, 1f,
+              false);
         state.updateNeighbors(world, pos, 1);
         cbe.refresh();
         world.updateComparators(pos, state.getBlock());
@@ -134,7 +183,8 @@ public class CrateBlock extends Block implements BlockEntityProvider {
    **/
   private static int insertOne(ItemStack playerStack, CrateSlot slot, Transaction t) {
     /* Insert one item into crate, if matching player's active held stack */
-    if (playerStack.isEmpty()) return 0;
+    if (playerStack.isEmpty())
+      return 0;
     int inserted = (int) slot.insert(ItemVariant.of(playerStack), 1, t);
     playerStack.decrement(inserted);
     return inserted;
@@ -143,8 +193,12 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   /**
    * UseBlockCallback helper method
    **/
-  private static int insertMaximum(PlayerEntity player, ItemStack playerStack, CrateSlot slot, Transaction transaction) {
-    /* Insert as many items as possible from player's inventory if slot is empty, or matches held stack */
+  private static int insertMaximum(PlayerEntity player, ItemStack playerStack, CrateSlot slot,
+                                   Transaction transaction) {
+    /*
+     * Insert as many items as possible from player's inventory if slot is empty, or
+     * matches held stack
+     */
     if (slot.isBlank() && playerStack.isEmpty()) {
       return 0;
     } else if (slot.isBlank() && !playerStack.isEmpty()) {
@@ -154,7 +208,8 @@ public class CrateBlock extends Block implements BlockEntityProvider {
       return i;
     } else {
       /* Insert into crate with items */
-      return (int) StorageUtil.move(PlayerInventoryStorage.of(player), slot, itemVariant -> true, Integer.MAX_VALUE, transaction);
+      return (int) StorageUtil.move(PlayerInventoryStorage.of(player), slot, itemVariant -> true, Integer.MAX_VALUE,
+          transaction);
     }
   }
 
@@ -167,7 +222,8 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     if (slot.isBlank()) {
       message = Text.translatable("message.basicstorage.crate.empty").withColor(0xFFDD99);
     } else {
-      message = Text.literal(NumberFormatter.toFormattedNumber(slot.getAmount()) + " " + slot.getResource().getItem().getName().getString()).withColor(0xFFDD99);
+      message = Text.literal(NumberFormatter.toFormattedNumber(slot.getAmount()) + " "
+          + slot.getResource().getItem().getName().getString()).withColor(0xFFDD99);
     }
     player.sendMessage(message, true);
     return ActionResult.CONSUME;
@@ -180,14 +236,20 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   /* Stop them being inserted into crates */
   public static boolean canInsert(ItemStack stack, CrateSlot slot, boolean insertingMultiple) {
     if (insertingMultiple) {
-      return !slot.isBlank() || canInsert(stack, slot, false); // Prevents stacked undesirables from being insertable when sneaking
-// This is ok as another check is done when actually inserting the items in CrateSlot#insert
+      return !slot.isBlank() || canInsert(stack, slot, false); // Prevents stacked undesirables from being insertable
+      // when sneaking
+      // This is ok as another check is done when actually inserting the items in
+      // CrateSlot#insert
     } else {
-      if (stack.isEmpty()) return false;
-      if (stack.isDamaged()) return false;
+      if (stack.isEmpty())
+        return false;
+      if (stack.isDamaged())
+        return false;
       if (stack.isOf(BlockRegistry.CRATE_BLOCK.asItem())
-          && stack.contains(DataComponentRegistry.CRATE_CONTENTS)) return false;
-      if (!ItemVariant.of(stack).equals(slot.getResource()) && !slot.isBlank()) return false;
+          && stack.contains(DataComponentRegistry.CRATE_CONTENTS))
+        return false;
+      if (!ItemVariant.of(stack).equals(slot.getResource()) && !slot.isBlank())
+        return false;
       return slot.isBlank() || stack.isOf(slot.getResource().getItem());
     }
   }
@@ -197,17 +259,22 @@ public class CrateBlock extends Block implements BlockEntityProvider {
    */
   @Override
   protected void onBlockBreakStart(BlockState state, World world, BlockPos pos, PlayerEntity player) {
-    if (!player.canModifyBlocks()) return;
+    if (!player.canModifyBlocks())
+      return;
 
     CrateBlockEntity cbe = (CrateBlockEntity) world.getBlockEntity(pos);
-    if (cbe == null) return;
-    if (cbe.storage.isBlank()) return;
+    if (cbe == null)
+      return;
+    if (cbe.storage.isBlank())
+      return;
 
     var hit = BlockUtils.getHitResult(player, pos);
-    if (hit.getType() == HitResult.Type.MISS) return;
+    if (hit.getType() == HitResult.Type.MISS)
+      return;
 
     Direction facing = state.get(Properties.HORIZONTAL_FACING);
-    if (facing != hit.getSide()) return;
+    if (facing != hit.getSide())
+      return;
 
     try (var t = Transaction.openOuter()) {
       var item = cbe.storage.getResource();
@@ -218,12 +285,18 @@ public class CrateBlock extends Block implements BlockEntityProvider {
       }
       player.getInventory().offerOrDrop(item.toStack(extracted));
       t.commit();
-      if (extracted == 1)
-        world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.INSERT_ONE, SoundCategory.BLOCKS, 0.6f, 1.2f + ((-1 + random.nextFloat() * (1 + 1)) / 10), false);
-      if (extracted > 1)
-        world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.EXTRACT_MANY, SoundCategory.BLOCKS, 0.75f, 1f, false);
 
-      world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.ENTITY_ITEM_PICKUP, SoundCategory.BLOCKS, 0.35f, 1f, false);
+      if (extracted == 1)
+        world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.INSERT_ONE, SoundCategory.BLOCKS, 0.6f,
+            1.2f + ((-1 + random.nextFloat() * (1 + 1)) / 10), false);
+      if (extracted > 1)
+        world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.EXTRACT_MANY, SoundCategory.BLOCKS, 0.75f, 1f,
+            false);
+      world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.ENTITY_ITEM_PICKUP, SoundCategory.BLOCKS, 0.35f,
+          1f, false);
+
+      if (cbe.storage.isBlank())
+        notifyNearbyDistributors(world, pos); // notify distributors to remove from network if empty
     }
     cbe.refresh();
     state.updateNeighbors(world, pos, 1);
@@ -258,7 +331,8 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   @Override
   public void appendTooltip(ItemStack stack, Item.TooltipContext context, List<Text> tooltip, TooltipType options) {
     CrateSlotComponent contentsComponent = stack.get(DataComponentRegistry.CRATE_CONTENTS);
-    if (contentsComponent == null) return;
+    if (contentsComponent == null)
+      return;
     ItemVariant item = contentsComponent.item();
     int amount = contentsComponent.count();
 
@@ -317,7 +391,6 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     return state.rotate(mirror.getRotation(state.get(FACING)));
   }
 
-
   @Override
   public boolean hasComparatorOutput(BlockState state) {
     return true;
@@ -347,9 +420,12 @@ public class CrateBlock extends Block implements BlockEntityProvider {
    */
   private static ActionResult debugInitOnUseMethod(PlayerEntity player, CrateSlot slot) {
     try (Transaction t = Transaction.openOuter()) {
-      if (slot.isBlank()) return ActionResult.PASS;
-      if (player.isSneaking()) slot.extract(slot.getResource(), 10000, t);
-      if (!player.isSneaking()) slot.insert(slot.getResource(), 100000, t);
+      if (slot.isBlank())
+        return ActionResult.PASS;
+      if (player.isSneaking())
+        slot.extract(slot.getResource(), 10000, t);
+      if (!player.isSneaking())
+        slot.insert(slot.getResource(), 100000, t);
       t.commit();
     }
     slot.update();
