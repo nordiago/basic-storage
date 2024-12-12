@@ -14,8 +14,10 @@ import net.minecraft.registry.RegistryOps;
 import net.minecraft.registry.RegistryWrapper;
 
 import static com.khazoda.basicstorage.block.CrateBlock.canInsert;
+import static com.khazoda.basicstorage.storage.CrateDistributorHelper.notifyNearbyDistributors;
 
-public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> implements SingleSlotStorage<ItemVariant>, CrateStorage {
+public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot>
+    implements SingleSlotStorage<ItemVariant>, CrateStorage {
   private ItemVariant item = ItemVariant.blank();
   private int count;
 
@@ -35,20 +37,23 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> imp
   public void readComponent(CrateSlotComponent component) {
     item = component.item();
     count = component.count();
-    if (item.isBlank()) count = 0;
+    if (item.isBlank())
+      count = 0;
   }
 
   public CrateSlotComponent toComponent() {
     return new CrateSlotComponent(
         item,
-        count
-    );
+        count);
   }
 
   @Override
   public long insert(ItemVariant resource, long maxAmount, TransactionContext transaction) {
-    if (!canInsert(resource.toStack(), this, maxAmount > 1)) return 0;
-    if (maxAmount > 1 && !resource.equals(this.getResource()) && !this.isBlank()) return 0;
+    boolean wasBlank = isBlank();
+    if (!canInsert(resource.toStack(), this, maxAmount > 1))
+      return 0;
+    if (maxAmount > 1 && !resource.equals(this.getResource()) && !this.isBlank())
+      return 0;
     int inserted = (int) Math.min(getCapacity() - count, maxAmount);
     if (inserted > 0) {
       updateSnapshots(transaction);
@@ -56,6 +61,13 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> imp
       if (item.isBlank()) {
         item = resource;
         this.markedDirty = true;
+      }
+      if (wasBlank) {
+        transaction.addOuterCloseCallback((result) -> {
+          if (owner.getWorld() != null) {
+            notifyNearbyDistributors(owner.getWorld(), owner.getPos());
+          }
+        });
       }
     } else if (inserted < 0) {
       return 0;
@@ -65,7 +77,9 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> imp
 
   @Override
   public long extract(ItemVariant resource, long maxAmount, TransactionContext transaction) {
-    if (!resource.equals(item)) return 0;
+    long amountBefore = count;
+    if (!resource.equals(item))
+      return 0;
     int extracted = (int) Math.min(count, maxAmount);
     if (extracted > 0) {
       updateSnapshots(transaction);
@@ -73,6 +87,13 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> imp
       if (count == 0) {
         item = ItemVariant.blank();
         this.markedDirty = true;
+      }
+      if (amountBefore == extracted) {
+        transaction.addOuterCloseCallback((result) -> {
+          if (owner.getWorld() != null) {
+            notifyNearbyDistributors(owner.getWorld(), owner.getPos());
+          }
+        });
       }
     } else if (extracted < 0) {
       return 0;
@@ -118,9 +139,11 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> imp
   }
 
   public void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-    item = ItemVariant.CODEC.parse(RegistryOps.of(NbtOps.INSTANCE, registryLookup), nbt.getCompound("item")).getOrThrow();
+    item = ItemVariant.CODEC.parse(RegistryOps.of(NbtOps.INSTANCE, registryLookup), nbt.getCompound("item"))
+        .getOrThrow();
     count = (int) nbt.getLong("count");
-    if (item.isBlank()) count = 0;
+    if (item.isBlank())
+      count = 0;
   }
 
   public void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {

@@ -1,7 +1,6 @@
 package com.khazoda.basicstorage.block;
 
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
-import com.khazoda.basicstorage.block.entity.CrateDistributorBlockEntity;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.registry.DataComponentRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
@@ -54,6 +53,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.Random;
 
+import static com.khazoda.basicstorage.storage.CrateDistributorHelper.notifyNearbyDistributors;
 import static java.lang.Math.toIntExact;
 
 /**
@@ -94,19 +94,6 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     if (world instanceof World) {
       notifyNearbyDistributors((World) world, pos);
     }
-  }
-
-  private static void notifyNearbyDistributors(World world, BlockPos pos) {
-    // Search for distributors within MAX_RADIUS blocks and force them to re-cache crates
-    int scanRadius = CrateDistributorBlockEntity.MAX_RADIUS;
-    BlockPos.iterate(
-        pos.add(-scanRadius, -scanRadius, -scanRadius),
-        pos.add(scanRadius, scanRadius, scanRadius)).forEach(checkPos -> {
-      BlockEntity be = world.getBlockEntity(checkPos);
-      if (be instanceof CrateDistributorBlockEntity distributor) {
-        distributor.markCacheForUpdate();
-      }
-    });
   }
 
   /**
@@ -157,9 +144,6 @@ public class CrateBlock extends Block implements BlockEntityProvider {
           t.abort();
           return ActionResult.CONSUME_PARTIAL;
         }
-
-        /* Rebuild cache for nearby distributors in case this crate needs to be added to the network */
-        if (inserted > 0 && slotWasBlank) notifyNearbyDistributors(world, pos);
 
         t.commit();
         if (inserted == 1)
@@ -295,8 +279,6 @@ public class CrateBlock extends Block implements BlockEntityProvider {
       world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.ENTITY_ITEM_PICKUP, SoundCategory.BLOCKS, 0.35f,
           1f, false);
 
-      if (cbe.storage.isBlank())
-        notifyNearbyDistributors(world, pos); // notify distributors to remove from network if empty
     }
     cbe.refresh();
     state.updateNeighbors(world, pos, 1);

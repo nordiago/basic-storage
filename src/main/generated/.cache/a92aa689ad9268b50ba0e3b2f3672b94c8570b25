@@ -1,2 +1,3 @@
-// 1.21	2024-08-21T05:12:05.9655339	Basic Storage/Block Loot Tables
+// 1.21	2024-12-12T01:55:28.1364119	Basic Storage/Block Loot Tables
 656abbd5d7aa97aff24da348fd2b344a02167d7d data\basicstorage\loot_table\blocks\crate.json
+18efef6615f6b491ce9517357813be143e4624b5 data\basicstorage\loot_table\blocks\crate_distributor.json

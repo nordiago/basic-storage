@@ -23,6 +23,7 @@ public class CrateLootTableProvider extends FabricBlockLootTableProvider {
   @Override
   public void generate() {
     addDrop(BlockRegistry.CRATE_BLOCK, this::drawerDrops);
+    addDrop(BlockRegistry.CRATE_DISTRIBUTOR_BLOCK);
   }
 
   private LootTable.Builder drawerDrops(Block drop) {

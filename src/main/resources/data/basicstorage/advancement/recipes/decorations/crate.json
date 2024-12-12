@@ -37,7 +37,8 @@
   ],
   "rewards": {
     "recipes": [
-      "basicstorage:crate"
+      "basicstorage:crate",
+      "basicstorage:crate_distributor"
     ]
   }
 }
