@@ -1,10 +1,14 @@
 package com.khazoda.basicstorage.block;
 
+import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.block.entity.CrateDistributorBlockEntity;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
+import net.fabricmc.fabric.api.transfer.v1.item.PlayerInventoryStorage;
+import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.BlockEntityTicker;
@@ -22,6 +26,9 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Right Click
@@ -54,29 +61,95 @@ public class CrateDistributorBlock extends BlockWithEntity implements BlockEntit
       if (!player.canModifyBlocks() || player.isSpectator()) return ActionResult.PASS;
 
       BlockPos pos = hit.getBlockPos();
-      BlockState state = world.getBlockState(pos);
       BlockEntity be = world.getBlockEntity(pos);
 
       if (be == null) return ActionResult.PASS;
 
       CrateDistributorBlockEntity cdbe = (CrateDistributorBlockEntity) be;
-      int connectedCrates = cdbe.getConnectedCrates().size();
       ItemStack playerStack = player.getMainHandStack();
-      boolean success = false;
+      int connectedCrateCount = cdbe.getConnectedCrates().size();
+      int inserted = 0;
 
-      if (playerStack.isEmpty() && !player.isSneaking()) {
-        if (!world.isClient())
-          player.sendMessage(Text.literal("-".concat(String.valueOf(connectedCrates)).concat(" Crates Connected-")).withColor(0xDDFF99), true);
-      } else {
-        success = cdbe.handleInteraction(player, hand);
+      if (player.isSneaking()) {
+        inserted = depositInventory(player, cdbe);
+      } else if (!player.isSneaking()) {
+        if (playerStack.isEmpty()) {
+          if (!world.isClient())
+            player.sendMessage(Text.translatable("message.basicstorage.distributor.connected_crate_count", connectedCrateCount).withColor(0xDDFF99), true);
+          return ActionResult.PASS;
+        }
+        inserted = depositStack(player.getStackInHand(hand), cdbe);
       }
 
-      if (success) {
-        return ActionResult.SUCCESS;
-      } else {
-        return ActionResult.PASS;
+      if (!world.isClient()) {
+        if (inserted <= 0)
+          player.sendMessage(Text.translatable("message.basicstorage.distributor.no_matching_crates").withColor(0xFF9999), true);  // Changed 'true' to 'false'
+        return ActionResult.CONSUME;
       }
+      return ActionResult.SUCCESS;
     });
+  }
+
+  private static int depositStack(ItemStack stack, CrateDistributorBlockEntity cdbe) {
+    int inserted = 0;
+    if (stack.isEmpty()) return 0;
+
+    ItemVariant variant = ItemVariant.of(stack);
+    List<BlockPos> compatibleCrates = cdbe.getCrateRegistry().get(variant);
+    if (compatibleCrates == null) return 0;
+    World world = cdbe.getWorld();
+
+    for (BlockPos cratePos : new ArrayList<>(compatibleCrates)) {
+      if (world == null) return 0; // todo: if something goes wrong, remove this and see if things work lol
+      BlockEntity be = world.getBlockEntity(cratePos);
+      if (!(be instanceof CrateBlockEntity crate)) {
+//        compatibleCrates.remove(cratePos); //TODO: Maybe Remove?
+        continue;
+      }
+
+      try (Transaction transaction = Transaction.openOuter()) {
+        inserted = (int) crate.storage.insert(variant, stack.getCount(), transaction);
+        if (inserted > 0) {
+          stack.decrement(inserted);
+          transaction.commit();
+          return inserted;
+        }
+      }
+    }
+    return inserted;
+  }
+
+  private static int depositInventory(PlayerEntity player, CrateDistributorBlockEntity cdbe) {
+    int inserted = 0;
+    PlayerInventoryStorage invStorage = PlayerInventoryStorage.of(player);
+    World world = cdbe.getWorld();
+
+    for (int i = 0; i < player.getInventory().main.size(); i++) {
+      ItemStack stack = player.getInventory().main.get(i);
+      if (!stack.isEmpty()) {
+        ItemVariant variant = ItemVariant.of(stack);
+        List<BlockPos> compatibleCrates = cdbe.getCrateRegistry().get(variant);
+
+        if (compatibleCrates != null) {
+          for (BlockPos cratePos : compatibleCrates) {
+            if (world == null) return 0;
+            BlockEntity be = world.getBlockEntity(cratePos);
+            if (!(be instanceof CrateBlockEntity crate))
+              continue;
+
+            try (Transaction transaction = Transaction.openOuter()) {
+              inserted += (int) crate.storage.insert(variant, stack.getCount(), transaction);
+              if (inserted > 0) {
+                stack.decrement(inserted);
+                transaction.commit();
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+    return inserted;
   }
 
   @Nullable

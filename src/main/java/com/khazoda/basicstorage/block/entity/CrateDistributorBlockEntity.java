@@ -3,13 +3,8 @@ package com.khazoda.basicstorage.block.entity;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.storage.CrateSlot;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
-import net.fabricmc.fabric.api.transfer.v1.item.PlayerInventoryStorage;
-import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
@@ -82,82 +77,6 @@ public class CrateDistributorBlockEntity extends BlockEntity {
         Math.abs(target.getZ() - pos.getZ()) <= MAX_RADIUS;
   }
 
-  public boolean handleInteraction(PlayerEntity player, Hand hand) {
-    if (world == null || world.isClient)
-      return false;
-
-    ItemStack heldStack = player.getStackInHand(hand);
-
-    if (player.isSneaking()) {
-      return depositInventory(player);
-    } else {
-      return depositStack(heldStack);
-    }
-  }
-
-  private boolean depositStack(ItemStack stack) {
-    if (stack.isEmpty())
-      return false;
-
-    ItemVariant variant = ItemVariant.of(stack);
-    List<BlockPos> compatibleCrates = crateRegistry.get(variant);
-    if (compatibleCrates == null)
-      return false;
-
-    for (BlockPos cratePos : new ArrayList<>(compatibleCrates)) {
-      if (world == null)
-        return false; // todo: if something goes wrong, remove this and see if things work lol
-      BlockEntity be = world.getBlockEntity(cratePos);
-      if (!(be instanceof CrateBlockEntity crate)) {
-        compatibleCrates.remove(cratePos);
-        continue;
-      }
-
-      try (Transaction transaction = Transaction.openOuter()) {
-        long inserted = crate.storage.insert(variant, stack.getCount(), transaction);
-        if (inserted > 0) {
-          stack.decrement((int) inserted);
-          transaction.commit();
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  private boolean depositInventory(PlayerEntity player) {
-    boolean depositedAny = false;
-    PlayerInventoryStorage invStorage = PlayerInventoryStorage.of(player);
-
-    for (int i = 0; i < player.getInventory().main.size(); i++) {
-      ItemStack stack = player.getInventory().main.get(i);
-      if (!stack.isEmpty()) {
-        ItemVariant variant = ItemVariant.of(stack);
-        List<BlockPos> compatibleCrates = crateRegistry.get(variant);
-
-        if (compatibleCrates != null) {
-          for (BlockPos cratePos : compatibleCrates) {
-            BlockEntity be = world.getBlockEntity(cratePos);
-            if (!(be instanceof CrateBlockEntity crate))
-              continue;
-
-            try (Transaction transaction = Transaction.openOuter()) {
-              long inserted = crate.storage.insert(variant, stack.getCount(), transaction);
-              if (inserted > 0) {
-                stack.decrement((int) inserted);
-                transaction.commit();
-                depositedAny = true;
-                break;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return depositedAny;
-  }
-
   public void markCacheForUpdate() {
     this.needsCacheUpdate = true;
     markDirty();
@@ -165,5 +84,9 @@ public class CrateDistributorBlockEntity extends BlockEntity {
 
   public Set<BlockPos> getConnectedCrates() {
     return connectedCrates;
+  }
+
+  public Map<ItemVariant, List<BlockPos>> getCrateRegistry() {
+    return crateRegistry;
   }
 }

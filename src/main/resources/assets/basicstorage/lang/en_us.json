@@ -2,6 +2,8 @@
   "block.basicstorage.crate": "Crate",
   "block.basicstorage.crate_distributor": "Crate Distributor",
   "message.basicstorage.crate.empty": "Empty",
+  "message.basicstorage.distributor.connected_crate_count": "• %d Crates Connected •",
+  "message.basicstorage.distributor.no_matching_crates": "• No Matching Crates Connected •",
   "command.basicstorage.root": "You are using §6Basic Storage §r",
   "command.basicstorage.wiki": "Visit the Basic Storage wiki",
   "basicstorage.itemGroup": "Basic Storage"

@@ -27,7 +27,6 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
 import net.minecraft.item.tooltip.TooltipType;
 import net.minecraft.loot.context.LootContextParameterSet;
 import net.minecraft.server.world.ServerWorld;
@@ -106,28 +105,22 @@ public class CrateBlock extends Block implements BlockEntityProvider {
      * block class is needed
      */
     UseBlockCallback.EVENT.register((PlayerEntity player, World world, Hand hand, BlockHitResult hit) -> {
-      if (!world.getBlockState(hit.getBlockPos()).isOf(BlockRegistry.CRATE_BLOCK))
-        return ActionResult.PASS;
-      if (!player.canModifyBlocks() || player.isSpectator())
-        return ActionResult.PASS;
+      if (!world.getBlockState(hit.getBlockPos()).isOf(BlockRegistry.CRATE_BLOCK)) return ActionResult.PASS;
+      if (!player.canModifyBlocks() || player.isSpectator()) return ActionResult.PASS;
 
       BlockPos pos = hit.getBlockPos();
       BlockState state = world.getBlockState(pos);
       BlockEntity be = world.getBlockEntity(pos);
       Direction facing = state.get(Properties.HORIZONTAL_FACING);
 
-      if (be == null)
-        return ActionResult.PASS;
-      if (facing != hit.getSide())
-        return ActionResult.PASS;
+      if (be == null) return ActionResult.PASS;
+      if (facing != hit.getSide()) return ActionResult.PASS;
 
       CrateBlockEntity cbe = (CrateBlockEntity) be;
       ItemStack playerStack = player.getMainHandStack();
       CrateSlot slot = cbe.storage;
-      boolean slotWasBlank = slot.isBlank();
 
-      if (playerStack.isOf(Items.DEBUG_STICK))
-        return debugInitOnUseMethod(player, slot);
+//      if (playerStack.isOf(Items.DEBUG_STICK)) return debugInitOnUseMethod(player, slot); Todo: Enable for debugging
 
       try (var t = Transaction.openOuter()) {
         int inserted = 0;
@@ -140,6 +133,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
             return listExactContents(player, slot);
           inserted = insertOne(playerStack, slot, t);
         }
+
         if (inserted == 0) {
           t.abort();
           return ActionResult.CONSUME_PARTIAL;
