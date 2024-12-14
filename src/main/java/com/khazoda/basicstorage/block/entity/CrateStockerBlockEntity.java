@@ -11,17 +11,17 @@ import net.minecraft.world.World;
 
 import java.util.*;
 
-public class CrateDistributorBlockEntity extends BlockEntity {
+public class CrateStockerBlockEntity extends BlockEntity {
   private final Map<ItemVariant, List<BlockPos>> crateRegistry = new HashMap<>();
   private final Set<BlockPos> connectedCrates = new HashSet<>();
   public static final int MAX_RADIUS = 16;
   private boolean needsCacheUpdate = true;
 
-  public CrateDistributorBlockEntity(BlockPos pos, BlockState state) {
-    super(BlockEntityRegistry.CRATE_DISTRIBUTOR_BLOCK_ENTITY, pos, state);
+  public CrateStockerBlockEntity(BlockPos pos, BlockState state) {
+    super(BlockEntityRegistry.CRATE_STOCKER_BLOCK_ENTITY, pos, state);
   }
 
-  public static void tick(World world, BlockPos pos, BlockState state, CrateDistributorBlockEntity be) {
+  public static void tick(World world, BlockPos pos, BlockState state, CrateStockerBlockEntity be) {
     if (be.needsCacheUpdate) {
       be.buildCrateCache();
       be.needsCacheUpdate = false;
@@ -46,7 +46,7 @@ public class CrateDistributorBlockEntity extends BlockEntity {
 
       visited.add(current);
       BlockEntity be = world.getBlockEntity(current);
-      if (be instanceof CrateDistributorBlockEntity)
+      if (be instanceof CrateStockerBlockEntity)
         addDirectionsToExplore(toExplore, current);
       if (be instanceof CrateBlockEntity crate) {
         registerCrate(current, crate.storage);

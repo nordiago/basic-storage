@@ -1,7 +1,7 @@
 package com.khazoda.basicstorage.block;
 
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
-import com.khazoda.basicstorage.block.entity.CrateDistributorBlockEntity;
+import com.khazoda.basicstorage.block.entity.CrateStockerBlockEntity;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.mojang.serialization.MapCodec;
@@ -40,15 +40,15 @@ import java.util.List;
  * Left Click - Nothing
  * Shift Left Click - Nothing
  */
-public class CrateDistributorBlock extends BlockWithEntity implements BlockEntityProvider {
-  public static final MapCodec<CrateDistributorBlock> CODEC = CrateDistributorBlock.createCodec(CrateDistributorBlock::new);
+public class CrateStockerBlock extends BlockWithEntity implements BlockEntityProvider {
+  public static final MapCodec<CrateStockerBlock> CODEC = CrateStockerBlock.createCodec(CrateStockerBlock::new);
   public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(3.5f).pistonBehavior(PistonBehavior.BLOCK).instrument(NoteBlockInstrument.BASS).mapColor(MapColor.OAK_TAN);
 
-  public CrateDistributorBlock(Settings settings) {
+  public CrateStockerBlock(Settings settings) {
     super(settings);
   }
 
-  public CrateDistributorBlock() {
+  public CrateStockerBlock() {
     this(defaultSettings);
   }
 
@@ -57,7 +57,7 @@ public class CrateDistributorBlock extends BlockWithEntity implements BlockEntit
    */
   public static void initOnUseMethod() {
     UseBlockCallback.EVENT.register((PlayerEntity player, World world, Hand hand, BlockHitResult hit) -> {
-      if (!world.getBlockState(hit.getBlockPos()).isOf(BlockRegistry.CRATE_DISTRIBUTOR_BLOCK)) return ActionResult.PASS;
+      if (!world.getBlockState(hit.getBlockPos()).isOf(BlockRegistry.CRATE_STOCKER_BLOCK)) return ActionResult.PASS;
       if (!player.canModifyBlocks() || player.isSpectator()) return ActionResult.PASS;
 
       BlockPos pos = hit.getBlockPos();
@@ -65,7 +65,7 @@ public class CrateDistributorBlock extends BlockWithEntity implements BlockEntit
 
       if (be == null) return ActionResult.PASS;
 
-      CrateDistributorBlockEntity cdbe = (CrateDistributorBlockEntity) be;
+      CrateStockerBlockEntity cdbe = (CrateStockerBlockEntity) be;
       ItemStack playerStack = player.getMainHandStack();
       int connectedCrateCount = cdbe.getConnectedCrates().size();
       int inserted = 0;
@@ -75,7 +75,7 @@ public class CrateDistributorBlock extends BlockWithEntity implements BlockEntit
       } else if (!player.isSneaking()) {
         if (playerStack.isEmpty()) {
           if (!world.isClient())
-            player.sendMessage(Text.translatable("message.basicstorage.distributor.connected_crate_count", connectedCrateCount).withColor(0xDDFF99), true);
+            player.sendMessage(Text.translatable("message.basicstorage.stocker.connected_crate_count", connectedCrateCount).withColor(0xDDFF99), true);
           return ActionResult.PASS;
         }
         inserted = depositStack(player.getStackInHand(hand), cdbe);
@@ -83,14 +83,14 @@ public class CrateDistributorBlock extends BlockWithEntity implements BlockEntit
 
       if (!world.isClient()) {
         if (inserted <= 0)
-          player.sendMessage(Text.translatable("message.basicstorage.distributor.no_matching_crates").withColor(0xFF9999), true);  // Changed 'true' to 'false'
+          player.sendMessage(Text.translatable("message.basicstorage.stocker.no_matching_crates").withColor(0xFF9999), true);  // Changed 'true' to 'false'
         return ActionResult.CONSUME;
       }
       return ActionResult.SUCCESS;
     });
   }
 
-  private static int depositStack(ItemStack stack, CrateDistributorBlockEntity cdbe) {
+  private static int depositStack(ItemStack stack, CrateStockerBlockEntity cdbe) {
     int inserted = 0;
     if (stack.isEmpty()) return 0;
 
@@ -119,7 +119,7 @@ public class CrateDistributorBlock extends BlockWithEntity implements BlockEntit
     return inserted;
   }
 
-  private static int depositInventory(PlayerEntity player, CrateDistributorBlockEntity cdbe) {
+  private static int depositInventory(PlayerEntity player, CrateStockerBlockEntity cdbe) {
     int inserted = 0;
     PlayerInventoryStorage invStorage = PlayerInventoryStorage.of(player);
     World world = cdbe.getWorld();
@@ -155,13 +155,13 @@ public class CrateDistributorBlock extends BlockWithEntity implements BlockEntit
   @Nullable
   @Override
   public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state, BlockEntityType<T> type) {
-    return validateTicker(type, BlockEntityRegistry.CRATE_DISTRIBUTOR_BLOCK_ENTITY, CrateDistributorBlockEntity::tick);
+    return validateTicker(type, BlockEntityRegistry.CRATE_STOCKER_BLOCK_ENTITY, CrateStockerBlockEntity::tick);
   }
 
   @Nullable
   @Override
   public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
-    return new CrateDistributorBlockEntity(pos, state);
+    return new CrateStockerBlockEntity(pos, state);
   }
 
   @Override
@@ -175,7 +175,7 @@ public class CrateDistributorBlock extends BlockWithEntity implements BlockEntit
   }
 
   @Override
-  public MapCodec<CrateDistributorBlock> getCodec() {
+  public MapCodec<CrateStockerBlock> getCodec() {
     return CODEC;
   }
 }

@@ -3,7 +3,7 @@ package com.khazoda.basicstorage.registry;
 import com.khazoda.basicstorage.BasicStorage;
 import com.khazoda.basicstorage.Constants;
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
-import com.khazoda.basicstorage.block.entity.CrateDistributorBlockEntity;
+import com.khazoda.basicstorage.block.entity.CrateStockerBlockEntity;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.registry.Registries;
@@ -17,10 +17,10 @@ public class BlockEntityRegistry {
       Registries.BLOCK_ENTITY_TYPE, Identifier.of(Constants.BS_NAMESPACE, "crate_block_entity"),
       BlockEntityType.Builder.create(CrateBlockEntity::new,
           BlockRegistry.CRATE_BLOCK).build());
-  public static final BlockEntityType<CrateDistributorBlockEntity> CRATE_DISTRIBUTOR_BLOCK_ENTITY = Registry.register(
-      Registries.BLOCK_ENTITY_TYPE, Identifier.of(Constants.BS_NAMESPACE, "crate_distributor_block_entity"),
-      BlockEntityType.Builder.create(CrateDistributorBlockEntity::new,
-          BlockRegistry.CRATE_DISTRIBUTOR_BLOCK).build());
+  public static final BlockEntityType<CrateStockerBlockEntity> CRATE_STOCKER_BLOCK_ENTITY = Registry.register(
+      Registries.BLOCK_ENTITY_TYPE, Identifier.of(Constants.BS_NAMESPACE, "crate_stocker_block_entity"),
+      BlockEntityType.Builder.create(CrateStockerBlockEntity::new,
+          BlockRegistry.CRATE_STOCKER_BLOCK).build());
 
 
   public static void init() {

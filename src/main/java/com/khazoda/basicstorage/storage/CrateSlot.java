@@ -14,7 +14,7 @@ import net.minecraft.registry.RegistryOps;
 import net.minecraft.registry.RegistryWrapper;
 
 import static com.khazoda.basicstorage.block.CrateBlock.canInsert;
-import static com.khazoda.basicstorage.storage.CrateDistributorHelper.notifyNearbyDistributors;
+import static com.khazoda.basicstorage.storage.CrateStockerHelper.notifyNearbyStockers;
 
 public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot>
     implements SingleSlotStorage<ItemVariant>, CrateStorage {
@@ -65,7 +65,7 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot>
       if (wasBlank) {
         transaction.addOuterCloseCallback((result) -> {
           if (owner.getWorld() != null) {
-            notifyNearbyDistributors(owner.getWorld(), owner.getPos());
+            notifyNearbyStockers(owner.getWorld(), owner.getPos());
           }
         });
       }
@@ -91,7 +91,7 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot>
       if (amountBefore == extracted) {
         transaction.addOuterCloseCallback((result) -> {
           if (owner.getWorld() != null) {
-            notifyNearbyDistributors(owner.getWorld(), owner.getPos());
+            notifyNearbyStockers(owner.getWorld(), owner.getPos());
           }
         });
       }

@@ -15,7 +15,8 @@ public class ItemGroupRegistry {
         .displayName(Text.translatable("basicstorage.itemGroup"))
         .entries((displayContext, entries) -> {
           entries.add(new ItemStack(BlockRegistry.CRATE_BLOCK));
-          entries.add(new ItemStack(BlockRegistry.CRATE_DISTRIBUTOR_BLOCK));
+          entries.add(new ItemStack(BlockRegistry.CRATE_STOCKER_BLOCK));
+          entries.add(new ItemStack(ItemRegistry.CRATE_COLLECTOR_ITEM));
         }).build();
   }
 }

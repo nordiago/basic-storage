@@ -3,6 +3,7 @@ package com.khazoda.basicstorage.block;
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.registry.DataComponentRegistry;
+import com.khazoda.basicstorage.registry.ItemRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
 import com.khazoda.basicstorage.storage.CrateSlot;
 import com.khazoda.basicstorage.structure.CrateSlotComponent;
@@ -45,14 +46,13 @@ import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
-import net.minecraft.world.WorldAccess;
 import net.minecraft.world.event.GameEvent;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Random;
 
-import static com.khazoda.basicstorage.storage.CrateDistributorHelper.notifyNearbyDistributors;
+import static com.khazoda.basicstorage.storage.CrateStockerHelper.notifyNearbyStockers;
 import static java.lang.Math.toIntExact;
 
 /**
@@ -84,15 +84,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   @Override
   public void onPlaced(World world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
     super.onPlaced(world, pos, state, placer, itemStack);
-    notifyNearbyDistributors(world, pos);
-  }
-
-  @Override
-  public void onBroken(WorldAccess world, BlockPos pos, BlockState state) {
-    super.onBroken(world, pos, state);
-    if (world instanceof World) {
-      notifyNearbyDistributors((World) world, pos);
-    }
+    notifyNearbyStockers(world, pos);
   }
 
   /**
@@ -118,6 +110,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
 
       CrateBlockEntity cbe = (CrateBlockEntity) be;
       ItemStack playerStack = player.getMainHandStack();
+      if (playerStack.isOf(ItemRegistry.CRATE_COLLECTOR_ITEM)) return ActionResult.PASS;
       CrateSlot slot = cbe.storage;
 
 //      if (playerStack.isOf(Items.DEBUG_STICK)) return debugInitOnUseMethod(player, slot); Todo: Enable for debugging
@@ -353,6 +346,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     BlockEntity blockEntity = world.getBlockEntity(pos);
     if (blockEntity instanceof CrateBlockEntity) {
       world.updateComparators(pos, state.getBlock());
+      notifyNearbyStockers(world, pos);
     }
     super.onStateReplaced(state, world, pos, newState, moved);
   }
