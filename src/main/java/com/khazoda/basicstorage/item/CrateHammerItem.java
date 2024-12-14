@@ -9,8 +9,8 @@ import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
-public class CrateCollectorItem extends Item {
-  public CrateCollectorItem(Settings settings) {
+public class CrateHammerItem extends Item {
+  public CrateHammerItem(Settings settings) {
     super(settings);
   }
 

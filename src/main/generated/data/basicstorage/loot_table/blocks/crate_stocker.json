@@ -11,7 +11,7 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "basicstorage:crate_stocker"
+          "name": "basicstorage:crate_station"
         }
       ],
       "rolls": 1.0

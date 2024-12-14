@@ -52,7 +52,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.Random;
 
-import static com.khazoda.basicstorage.storage.CrateStockerHelper.notifyNearbyStockers;
+import static com.khazoda.basicstorage.storage.CrateStationHelper.notifyNearbyStations;
 import static java.lang.Math.toIntExact;
 
 /**
@@ -84,7 +84,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   @Override
   public void onPlaced(World world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
     super.onPlaced(world, pos, state, placer, itemStack);
-    notifyNearbyStockers(world, pos);
+    notifyNearbyStations(world, pos);
   }
 
   /**
@@ -110,7 +110,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
 
       CrateBlockEntity cbe = (CrateBlockEntity) be;
       ItemStack playerStack = player.getMainHandStack();
-      if (playerStack.isOf(ItemRegistry.CRATE_COLLECTOR_ITEM)) return ActionResult.PASS;
+      if (playerStack.isOf(ItemRegistry.CRATE_HAMMER_ITEM)) return ActionResult.PASS;
       CrateSlot slot = cbe.storage;
 
 //      if (playerStack.isOf(Items.DEBUG_STICK)) return debugInitOnUseMethod(player, slot); Todo: Enable for debugging
@@ -346,7 +346,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     BlockEntity blockEntity = world.getBlockEntity(pos);
     if (blockEntity instanceof CrateBlockEntity) {
       world.updateComparators(pos, state.getBlock());
-      notifyNearbyStockers(world, pos);
+      notifyNearbyStations(world, pos);
     }
     super.onStateReplaced(state, world, pos, newState, moved);
   }

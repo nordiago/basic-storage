@@ -1,10 +1,10 @@
 {
   "block.basicstorage.crate": "Crate",
-  "block.basicstorage.crate_stocker": "Crate Stocker",
-  "item.basicstorage.crate_collector": "Crate Collector",
+  "block.basicstorage.crate_station": "Crate Station",
+  "item.basicstorage.crate_hammer": "Crate Hammer",
   "message.basicstorage.crate.empty": "Empty",
-  "message.basicstorage.stocker.connected_crate_count": "• %d Crates Connected •",
-  "message.basicstorage.stocker.no_matching_crates": "• No Matching Crates •",
+  "message.basicstorage.station.connected_crate_count": "• %d Crates Connected •",
+  "message.basicstorage.station.no_matching_crates": "• No Matching Crates •",
   "command.basicstorage.root": "You are using §6Basic Storage §r",
   "command.basicstorage.wiki": "Visit the Basic Storage wiki",
   "basicstorage.itemGroup": "Basic Storage"
