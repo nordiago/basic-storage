@@ -104,11 +104,12 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
           return ActionResult.CONSUME;
         }
 
-        if (inserted <= 64) {
+        if (inserted == 1) {
+          world.playSound(null, pos, SoundRegistry.HANDLE_ONE, SoundCategory.BLOCKS, 1f, 1.05f);
+        } else if (inserted <= 64) {
           world.playSound(null, pos, SoundRegistry.HANDLE_MANY, SoundCategory.BLOCKS, 1f, 1.05f);
         } else {
           world.playSound(null, pos, SoundRegistry.HANDLE_LOADS, SoundCategory.BLOCKS, 1f, 1.05f);
-
         }
 
         state.updateNeighbors(world, pos, 1);
