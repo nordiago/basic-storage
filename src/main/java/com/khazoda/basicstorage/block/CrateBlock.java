@@ -85,6 +85,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   public void onPlaced(World world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
     super.onPlaced(world, pos, state, placer, itemStack);
     notifyNearbyStations(world, pos);
+    world.emitGameEvent(placer, GameEvent.BLOCK_PLACE, pos);
   }
 
   /**
@@ -135,7 +136,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
         t.commit();
         if (inserted == 1)
           world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.INSERT_ONE, SoundCategory.BLOCKS, 1f,
-              1f + ((-1 + random.nextFloat() * (1 + 1)) / 10), false);
+              1f + ((-0.5f + random.nextFloat() * (1 + 0.5f)) / 10), false);
         if (inserted > 1)
           world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.INSERT_MANY, SoundCategory.BLOCKS, 1f, 1f,
               false);
@@ -347,6 +348,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     if (blockEntity instanceof CrateBlockEntity) {
       world.updateComparators(pos, state.getBlock());
       notifyNearbyStations(world, pos);
+      world.emitGameEvent(null, GameEvent.BLOCK_DESTROY, pos);
     }
     super.onStateReplaced(state, world, pos, newState, moved);
   }
