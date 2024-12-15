@@ -82,7 +82,8 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   }
 
   @Override
-  public void onPlaced(World world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
+  public void onPlaced(World world, BlockPos pos, BlockState state, @Nullable LivingEntity placer,
+                       ItemStack itemStack) {
     super.onPlaced(world, pos, state, placer, itemStack);
     notifyNearbyStations(world, pos);
     world.emitGameEvent(placer, GameEvent.BLOCK_PLACE, pos);
@@ -98,23 +99,29 @@ public class CrateBlock extends Block implements BlockEntityProvider {
      * block class is needed
      */
     UseBlockCallback.EVENT.register((PlayerEntity player, World world, Hand hand, BlockHitResult hit) -> {
-      if (!world.getBlockState(hit.getBlockPos()).isOf(BlockRegistry.CRATE_BLOCK)) return ActionResult.PASS;
-      if (!player.canModifyBlocks() || player.isSpectator()) return ActionResult.PASS;
+      if (!world.getBlockState(hit.getBlockPos()).isOf(BlockRegistry.CRATE_BLOCK))
+        return ActionResult.PASS;
+      if (!player.canModifyBlocks() || player.isSpectator())
+        return ActionResult.PASS;
 
       BlockPos pos = hit.getBlockPos();
       BlockState state = world.getBlockState(pos);
       BlockEntity be = world.getBlockEntity(pos);
       Direction facing = state.get(Properties.HORIZONTAL_FACING);
 
-      if (be == null) return ActionResult.PASS;
-      if (facing != hit.getSide()) return ActionResult.PASS;
+      if (be == null)
+        return ActionResult.PASS;
+      if (facing != hit.getSide())
+        return ActionResult.PASS;
 
       CrateBlockEntity cbe = (CrateBlockEntity) be;
       ItemStack playerStack = player.getMainHandStack();
-      if (playerStack.isOf(ItemRegistry.CRATE_HAMMER_ITEM)) return ActionResult.PASS;
+      if (playerStack.isOf(ItemRegistry.CRATE_HAMMER_ITEM))
+        return ActionResult.PASS;
       CrateSlot slot = cbe.storage;
 
-//      if (playerStack.isOf(Items.DEBUG_STICK)) return debugInitOnUseMethod(player, slot); Todo: Enable for debugging
+      // if (playerStack.isOf(Items.DEBUG_STICK)) return debugInitOnUseMethod(player,
+      // slot); Todo: Enable for debugging
 
       try (var t = Transaction.openOuter()) {
         int inserted = 0;
@@ -135,11 +142,9 @@ public class CrateBlock extends Block implements BlockEntityProvider {
 
         t.commit();
         if (inserted == 1)
-          world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.INSERT_ONE, SoundCategory.BLOCKS, 1f,
-              1f + ((-0.5f + random.nextFloat() * (1 + 0.5f)) / 10), false);
+          world.playSound(null, pos, SoundRegistry.HANDLE_ONE, SoundCategory.BLOCKS, 1f, 1f + ((-0.5f + random.nextFloat() * (1 + 0.5f)) / 10));
         if (inserted > 1)
-          world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.INSERT_MANY, SoundCategory.BLOCKS, 1f, 1f,
-              false);
+          world.playSound(null, pos, SoundRegistry.HANDLE_MANY, SoundCategory.BLOCKS, 1f, 1f);
         state.updateNeighbors(world, pos, 1);
         cbe.refresh();
         world.updateComparators(pos, state.getBlock());
@@ -259,13 +264,11 @@ public class CrateBlock extends Block implements BlockEntityProvider {
       t.commit();
 
       if (extracted == 1)
-        world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.INSERT_ONE, SoundCategory.BLOCKS, 0.6f,
-            1.2f + ((-1 + random.nextFloat() * (1 + 1)) / 10), false);
+        world.playSound(null, pos, SoundRegistry.HANDLE_ONE, SoundCategory.BLOCKS, 0.6f,
+            1.2f + ((-1 + random.nextFloat() * (1 + 1)) / 10));
       if (extracted > 1)
-        world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundRegistry.EXTRACT_MANY, SoundCategory.BLOCKS, 0.75f, 1f,
-            false);
-      world.playSound(pos.getX(), pos.getY(), pos.getZ(), SoundEvents.ENTITY_ITEM_PICKUP, SoundCategory.BLOCKS, 0.35f,
-          1f, false);
+        world.playSound(null, pos, SoundRegistry.HANDLE_ONE, SoundCategory.BLOCKS, 0.75f, 1f);
+      world.playSound(null, pos, SoundEvents.ENTITY_ITEM_PICKUP, SoundCategory.BLOCKS, 0.35f, 1f);
 
     }
     cbe.refresh();
