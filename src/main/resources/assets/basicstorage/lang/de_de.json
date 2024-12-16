@@ -1,8 +1,8 @@
 {
   "block.basicstorage.crate": "Kiste",
-  "block.basicstorage.crate_station": "Kistenbestücker",
   "message.basicstorage.crate.empty": "Leer",
   "command.basicstorage.root": "Sie benutzen §6Basic Storage §r",
   "command.basicstorage.wiki": "Besuchen Sie das Basic Storage Wiki",
-  "basicstorage.itemGroup": "Basic Storage"
+  "basicstorage.itemGroup": "Basic Storage",
+  "block.basicstorage.crate_station": "Kistenbestücker"
 }
