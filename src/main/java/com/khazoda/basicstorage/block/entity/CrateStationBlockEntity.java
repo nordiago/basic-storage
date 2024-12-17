@@ -77,6 +77,14 @@ public class CrateStationBlockEntity extends BlockEntity {
         Math.abs(target.getZ() - pos.getZ()) <= MAX_RADIUS;
   }
 
+  @Override
+  public void markRemoved() {
+    crateRegistry.clear();
+    connectedCrates.clear();
+    needsCacheUpdate = true;
+    super.markRemoved();
+  }
+
   public void markCacheForUpdate() {
     this.needsCacheUpdate = true;
     markDirty();
