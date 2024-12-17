@@ -81,7 +81,6 @@ public class CrateStationBlockEntity extends BlockEntity {
   public void markRemoved() {
     crateRegistry.clear();
     connectedCrates.clear();
-    needsCacheUpdate = true;
     super.markRemoved();
   }
 
