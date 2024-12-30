@@ -6,12 +6,8 @@
     "#/#"
   ],
   "key": {
-    "#": {
-      "tag": "minecraft:planks"
-    },
-    "/": {
-      "item": "minecraft:stick"
-    }
+    "#": "#minecraft:planks",
+    "/": "minecraft:stick"
   },
   "result": {
     "id": "basicstorage:crate",

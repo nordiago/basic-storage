@@ -29,14 +29,14 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.loot.context.LootContextParameterSet;
+import net.minecraft.loot.context.LootWorldContext;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.BlockSoundGroup;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.stat.Stats;
 import net.minecraft.state.StateManager;
-import net.minecraft.state.property.DirectionProperty;
+import net.minecraft.state.property.EnumProperty;
 import net.minecraft.state.property.Properties;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
@@ -65,7 +65,7 @@ import static java.lang.Math.toIntExact;
  */
 public class CrateBlock extends Block implements BlockEntityProvider {
   public static final MapCodec<CrateBlock> CODEC = CrateBlock.createCodec(CrateBlock::new);
-  public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
+  public static final EnumProperty<Direction> FACING = Properties.HORIZONTAL_FACING;
   public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(2.5f)
       .pistonBehavior(PistonBehavior.BLOCK).instrument(NoteBlockInstrument.BASS).mapColor(MapColor.OAK_TAN);
 
@@ -120,8 +120,8 @@ public class CrateBlock extends Block implements BlockEntityProvider {
         return ActionResult.PASS;
       CrateSlot slot = cbe.storage;
 
-      // if (playerStack.isOf(Items.DEBUG_STICK)) return debugInitOnUseMethod(player,
-      // slot); Todo: Enable for debugging
+      // Todo: Enable for debugging
+      // if (playerStack.isOf(net.minecraft.item.Items.DEBUG_STICK)) return debugInitOnUseMethod(player, slot);
 
       try (var t = Transaction.openOuter()) {
         int inserted = 0;
@@ -137,7 +137,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
 
         if (inserted == 0) {
           t.abort();
-          return ActionResult.CONSUME_PARTIAL;
+          return ActionResult.CONSUME;
         }
 
         t.commit();
@@ -294,7 +294,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   }
 
   @Override
-  protected List<ItemStack> getDroppedStacks(BlockState state, LootContextParameterSet.Builder builder) {
+  protected List<ItemStack> getDroppedStacks(BlockState state, LootWorldContext.Builder builder) {
     return super.getDroppedStacks(state, builder);
   }
 

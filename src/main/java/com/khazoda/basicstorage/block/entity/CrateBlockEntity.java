@@ -30,7 +30,7 @@ public class CrateBlockEntity extends BlockEntity {
    */
   public void refresh() {
     if (world instanceof ServerWorld) {
-      world.getWorldChunk(pos).setNeedsSaving(true);
+      world.getWorldChunk(pos).markNeedsSaving();
       var state = getCachedState();
       world.updateListeners(pos, state, state, Block.NOTIFY_LISTENERS);
       world.updateComparators(pos, state.getBlock());

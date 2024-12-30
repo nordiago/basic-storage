@@ -16,8 +16,8 @@ import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
 import net.minecraft.client.render.item.ItemRenderer;
-import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.RotationAxis;
@@ -93,12 +93,13 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     matrices.peek().getPositionMatrix().mul(new Matrix4f().scale(1, 1, 0.01f));
 
     var stack = item.toStack();
-    var model = itemRenderer.getModel(stack, world, null, seed);
+    // var model = itemRenderer.getModel(stack, world, null, seed);
 
     var lights = new Vector3f[2];
     System.arraycopy(RenderSystemAccessor.getShaderLightDirections(), 0, lights, 0, 2);
 
-    if (model.isSideLit()) {
+    // if (model.isSideLit()) {
+    if (true) {
       matrices.peek().getNormalMatrix().rotate(ITEM_LIGHT_ROTATION_3D);
       DiffuseLighting.enableGuiDepthLighting();
     } else {
@@ -106,7 +107,7 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
       DiffuseLighting.disableGuiDepthLighting();
     }
 
-    itemRenderer.renderItem(stack, ModelTransformationMode.GUI, false, matrices, vertexConsumers, light, OverlayTexture.DEFAULT_UV, model);
+    itemRenderer.renderItem(stack, ModelTransformationMode.GUI, light, OverlayTexture.DEFAULT_UV, matrices, vertexConsumers, world, seed);
 
     System.arraycopy(lights, 0, RenderSystemAccessor.getShaderLightDirections(), 0, 2);
     matrices.pop();
@@ -139,6 +140,6 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     var pos = be.getPos();
     var state = be.getCachedState();
 
-    return Block.shouldDrawSide(state, world, pos, facing, pos.offset(facing));
+    return Block.shouldDrawSide(state, world.getBlockState(pos.offset(facing)), facing);
   }
 }
