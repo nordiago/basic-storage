@@ -6,21 +6,11 @@
     "#H#"
   ],
   "key": {
-    "#": {
-      "tag": "minecraft:planks"
-    },
-    "R": {
-      "item": "minecraft:redstone"
-    },
-    "/": {
-      "item": "minecraft:stick"
-    },
-    "E": {
-      "item": "minecraft:ender_eye"
-    },
-    "H": {
-      "item": "minecraft:hopper"
-    }
+    "#": "#minecraft:planks",
+    "R": "minecraft:redstone",
+    "/": "minecraft:stick",
+    "E": "minecraft:ender_eye",
+    "H": "minecraft:hopper"
   },
   "result": {
     "id": "basicstorage:crate_station",
