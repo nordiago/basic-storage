@@ -159,8 +159,8 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
     PlayerInventoryStorage invStorage = PlayerInventoryStorage.of(player);
     World world = cdbe.getWorld();
 
-    for (int i = 0; i < player.getInventory().main.size(); i++) {
-      ItemStack stack = player.getInventory().main.get(i);
+    for (int i = 0; i < player.getInventory().getMainStacks().size(); i++) {
+      ItemStack stack = player.getInventory().getMainStacks().get(i);
       if (!stack.isEmpty()) {
         ItemVariant variant = ItemVariant.of(stack);
         List<BlockPos> compatibleCrates = cdbe.getCrateRegistry().get(variant);

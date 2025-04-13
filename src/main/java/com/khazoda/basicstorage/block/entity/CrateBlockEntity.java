@@ -9,6 +9,7 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.component.ComponentMap;
+import net.minecraft.component.ComponentsAccess;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
 import net.minecraft.registry.RegistryWrapper;
@@ -50,7 +51,7 @@ public class CrateBlockEntity extends BlockEntity {
   @Override
   protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
     super.readNbt(nbt, registryLookup);
-    if (nbt.contains("crateStack", 10)) {
+    if (nbt.contains("crateStack")) {
       storage.readNbt(nbt.getCompound("crateStack"), registryLookup);
     }
   }
@@ -85,7 +86,7 @@ public class CrateBlockEntity extends BlockEntity {
   }
 
   @Override
-  protected void readComponents(BlockEntity.ComponentsAccess components) {
+  protected void readComponents(ComponentsAccess components) {
     CrateSlotComponent contents = components.getOrDefault(DataComponentRegistry.CRATE_CONTENTS,
         CrateSlotComponent.DEFAULT);
     if (contents == null || contents.count() == 0)

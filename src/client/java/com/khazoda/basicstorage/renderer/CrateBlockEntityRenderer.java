@@ -17,7 +17,7 @@ import net.minecraft.client.render.block.entity.BlockEntityRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
 import net.minecraft.client.render.item.ItemRenderer;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.ModelTransformationMode;
+import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.RotationAxis;
@@ -43,7 +43,7 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
   }
 
   @Override
-  public void render(CrateBlockEntity be, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay) {
+  public void render(CrateBlockEntity be, float tickProgress, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay, Vec3d cameraPos) {
     var horizontalDir = be.getCachedState().get(CrateBlock.FACING);
     var dir = CrateBlock.getFront(be.getCachedState());
     var world = be.getWorld();
@@ -98,6 +98,7 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     var lights = new Vector3f[2];
     System.arraycopy(RenderSystemAccessor.getShaderLightDirections(), 0, lights, 0, 2);
 
+    // Temporarily disabled due to rendering changes in 1.21.4
     // if (model.isSideLit()) {
     if (true) {
       matrices.peek().getNormalMatrix().rotate(ITEM_LIGHT_ROTATION_3D);
@@ -107,7 +108,7 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
       DiffuseLighting.disableGuiDepthLighting();
     }
 
-    itemRenderer.renderItem(stack, ModelTransformationMode.GUI, light, OverlayTexture.DEFAULT_UV, matrices, vertexConsumers, world, seed);
+    itemRenderer.renderItem(stack, ItemDisplayContext.GUI, light, OverlayTexture.DEFAULT_UV, matrices, vertexConsumers, world, seed);
 
     System.arraycopy(lights, 0, RenderSystemAccessor.getShaderLightDirections(), 0, 2);
     matrices.pop();
