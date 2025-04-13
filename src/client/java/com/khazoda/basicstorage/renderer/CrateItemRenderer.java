@@ -10,11 +10,9 @@ import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.item.ItemRenderer;
-import net.minecraft.client.render.model.BakedModel;
-import net.minecraft.client.render.model.BakedModelManager;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.ModelTransformationMode;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.RotationAxis;
 import org.joml.Quaternionf;
@@ -28,27 +26,24 @@ public class CrateItemRenderer implements ModelLoadingPlugin {
   private static final Quaternionf ITEM_LIGHT_ROTATION_FLAT = RotationAxis.POSITIVE_X.rotationDegrees(-45);
 
   // @Override
-  public void render(ItemStack stack, ModelTransformationMode mode, MatrixStack matrices, VertexConsumerProvider vertexConsumerProvider, int light, int overlay) {
+  public void render(ItemStack stack, ItemDisplayContext mode, MatrixStack matrices, VertexConsumerProvider vertexConsumerProvider, int light, int overlay) {
     var client = MinecraftClient.getInstance();
     ItemRenderer itemRenderer = client.getItemRenderer();
 
-    BakedModelManager modelManager = client.getBakedModelManager();
-    BakedModel crateModel = modelManager.getModel(CRATE_ID);
-
-    if (!mode.equals(ModelTransformationMode.GUI) || !stack.contains(DataComponentRegistry.CRATE_CONTENTS)) {
+    if (!mode.equals(ItemDisplayContext.GUI) || !stack.contains(DataComponentRegistry.CRATE_CONTENTS)) {
       // Render crate crateModel normally
-      renderCrate(stack, mode, matrices, vertexConsumerProvider, light, overlay, itemRenderer, crateModel, false);
+      renderCrate(stack, mode, matrices, vertexConsumerProvider, light, overlay, itemRenderer, false);
     } else {
       // Render create crateModel in GUI with extra information
       if (stack.contains(DataComponentRegistry.CRATE_CONTENTS)) {
-        renderCrate(stack, mode, matrices, vertexConsumerProvider, light, overlay, itemRenderer, crateModel, true);
+        renderCrate(stack, mode, matrices, vertexConsumerProvider, light, overlay, itemRenderer, true);
         ItemVariant item = Objects.requireNonNull(stack.get(DataComponentRegistry.CRATE_CONTENTS)).item();
         renderCrateContents(itemRenderer, item, light, matrices, vertexConsumerProvider);
       }
     }
   }
 
-  private void renderCrate(ItemStack stack, ModelTransformationMode mode, MatrixStack matrices, VertexConsumerProvider vertexConsumerProvider, int light, int overlay, ItemRenderer itemRenderer, BakedModel crateModel, boolean hasContents) {
+  private void renderCrate(ItemStack stack, ItemDisplayContext mode, MatrixStack matrices, VertexConsumerProvider vertexConsumerProvider, int light, int overlay, ItemRenderer itemRenderer, boolean hasContents) {
     matrices.push();
     matrices.translate(.5, .5, .5);
     if (hasContents) {
@@ -58,7 +53,7 @@ public class CrateItemRenderer implements ModelLoadingPlugin {
       // itemRenderer.renderItem(stack, mode, false, matrices, vertexConsumerProvider, light, overlay, crateModel);
       itemRenderer.renderItem(stack, mode, light, overlay, matrices, vertexConsumerProvider, null, 0);
     }
-    crateModel.getTransformation().getTransformation(mode).apply(false, matrices);
+    // crateModel.getTransformation().getTransformation(mode).apply(false, matrices);
     matrices.pop();
   }
 
@@ -75,6 +70,7 @@ public class CrateItemRenderer implements ModelLoadingPlugin {
     var lights = new Vector3f[2];
     System.arraycopy(RenderSystemAccessor.getShaderLightDirections(), 0, lights, 0, 2);
 
+    // Temporarily disabled due to rendering changes in 1.21.4
     // if (model.isSideLit()) {
     if (true) {
       matrices.peek().getNormalMatrix().rotate(ITEM_LIGHT_ROTATION_3D);
@@ -85,7 +81,7 @@ public class CrateItemRenderer implements ModelLoadingPlugin {
     }
 
     // itemRenderer.renderItem(stack, ModelTransformationMode.GUI, false, matrices, vertexConsumers, light, OverlayTexture.DEFAULT_UV, model);
-    itemRenderer.renderItem(stack, ModelTransformationMode.GUI, light, OverlayTexture.DEFAULT_UV, matrices, vertexConsumers, null, 0);
+    itemRenderer.renderItem(stack, ItemDisplayContext.GUI, light, OverlayTexture.DEFAULT_UV, matrices, vertexConsumers, null, 0);
 
     System.arraycopy(lights, 0, RenderSystemAccessor.getShaderLightDirections(), 0, 2);
     matrices.pop();
@@ -99,6 +95,6 @@ public class CrateItemRenderer implements ModelLoadingPlugin {
 
   @Override
   public void initialize(Context pluginContext) {
-    pluginContext.addModels(CRATE_ID);
+    // pluginContext.addModels(CRATE_ID);
   }
 }

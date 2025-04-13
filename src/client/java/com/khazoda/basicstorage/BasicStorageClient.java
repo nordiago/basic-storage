@@ -1,10 +1,9 @@
 package com.khazoda.basicstorage;
 
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
-import com.khazoda.basicstorage.registry.BlockRegistry;
-import com.khazoda.basicstorage.registry.DataComponentRegistry;
 import com.khazoda.basicstorage.renderer.CrateBlockEntityRenderer;
 import com.khazoda.basicstorage.renderer.CrateItemRenderer;
+import java.net.URI;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -12,7 +11,7 @@ import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
 // import net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry;
 // import net.minecraft.client.item.ClampedModelPredicateProvider;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactories;
-import net.minecraft.text.ClickEvent;
+import net.minecraft.text.ClickEvent.OpenUrl;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -40,7 +39,7 @@ public class BasicStorageClient implements ClientModInitializer {
             )
             .then(ClientCommandManager.literal("wiki")
                 .executes(context -> {
-                  context.getSource().sendFeedback(Text.translatable("command.basicstorage.wiki").setStyle(Style.EMPTY.withColor(Formatting.BLUE).withUnderline(true).withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, "https://modded.wiki/w/Mod:Basic_Storage"))));
+                  context.getSource().sendFeedback(Text.translatable("command.basicstorage.wiki").setStyle(Style.EMPTY.withColor(Formatting.BLUE).withUnderline(true).withClickEvent(new OpenUrl(URI.create("https://modded.wiki/w/Mod:Basic_Storage")))));
                   return 1;
                 })
             )

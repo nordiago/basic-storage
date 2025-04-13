@@ -6,7 +6,6 @@ import com.khazoda.basicstorage.registry.DataComponentRegistry;
 import com.khazoda.basicstorage.registry.ItemRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
 import com.khazoda.basicstorage.storage.CrateSlot;
-import com.khazoda.basicstorage.structure.CrateSlotComponent;
 import com.khazoda.basicstorage.util.BlockUtils;
 import com.khazoda.basicstorage.util.NumberFormatter;
 import com.mojang.serialization.MapCodec;
@@ -25,10 +24,8 @@ import net.minecraft.block.piston.PistonBehavior;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.pathing.NavigationType;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.tooltip.TooltipType;
 import net.minecraft.loot.context.LootWorldContext;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.BlockSoundGroup;
@@ -38,7 +35,6 @@ import net.minecraft.stat.Stats;
 import net.minecraft.state.StateManager;
 import net.minecraft.state.property.EnumProperty;
 import net.minecraft.state.property.Properties;
-import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.*;
 import net.minecraft.util.hit.BlockHitResult;
@@ -298,24 +294,6 @@ public class CrateBlock extends Block implements BlockEntityProvider {
     return super.getDroppedStacks(state, builder);
   }
 
-  /**
-   * Applies custom tooltip showing crate contents
-   **/
-  @Override
-  public void appendTooltip(ItemStack stack, Item.TooltipContext context, List<Text> tooltip, TooltipType options) {
-    CrateSlotComponent contentsComponent = stack.get(DataComponentRegistry.CRATE_CONTENTS);
-    if (contentsComponent == null)
-      return;
-    ItemVariant item = contentsComponent.item();
-    int amount = contentsComponent.count();
-
-    MutableText contents_line_2 = Text.literal(item.getItem().getName().getString()).withColor(0xCCAA77);
-    MutableText contents_line_1 = Text.literal("x" + NumberFormatter.toFormattedNumber(amount)).withColor(0xFFDD99);
-
-    tooltip.add(contents_line_1);
-    tooltip.add(contents_line_2);
-  }
-
   public static Direction getFront(BlockState state) {
     return state.get(FACING);
   }
@@ -343,17 +321,14 @@ public class CrateBlock extends Block implements BlockEntityProvider {
   }
 
   @Override
-  protected void onStateReplaced(BlockState state, World world, BlockPos pos, BlockState newState, boolean moved) {
-    if (state.isOf(newState.getBlock())) {
-      return;
-    }
+  protected void onStateReplaced(BlockState state, ServerWorld world, BlockPos pos, boolean moved) {
     BlockEntity blockEntity = world.getBlockEntity(pos);
     if (blockEntity instanceof CrateBlockEntity) {
       world.updateComparators(pos, state.getBlock());
       notifyNearbyStations(world, pos);
       world.emitGameEvent(null, GameEvent.BLOCK_DESTROY, pos);
     }
-    super.onStateReplaced(state, world, pos, newState, moved);
+    super.onStateReplaced(state, world, pos, moved);
   }
 
   @Override

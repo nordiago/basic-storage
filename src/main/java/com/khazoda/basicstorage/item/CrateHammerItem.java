@@ -10,7 +10,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
 public class CrateHammerItem extends Item {
-  public CrateHammerItem(Settings settings) {
+  public CrateHammerItem(net.minecraft.item.Item.Settings settings) {
     super(settings);
   }
 
