@@ -14,6 +14,8 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.storage.ReadView;
+import net.minecraft.storage.WriteView;
 import net.minecraft.util.math.BlockPos;
 
 public class CrateBlockEntity extends BlockEntity {
@@ -42,28 +44,25 @@ public class CrateBlockEntity extends BlockEntity {
    * NBT Operations
    **/
   @Override
-  protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
+  protected void writeData(WriteView view) {
+    super.writeData(view);
     var storageNbt = new NbtCompound();
-    storage.writeNbt(storageNbt, registryLookup);
-    nbt.put("crateStack", storageNbt);
+    storage.writeNbt(storageNbt);
+    view.put("crateStack", NbtCompound.CODEC, storageNbt);
   }
 
   @Override
-  protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-    super.readNbt(nbt, registryLookup);
-    if (nbt.contains("crateStack")) {
-      storage.readNbt(nbt.getCompound("crateStack"), registryLookup);
-    }
+  protected void readData(ReadView view) {
+    super.readData(view);
+    storage.readNbt(view.read("crateStack", NbtCompound.CODEC));
   }
 
   /**
    * Block Entity Boilerplate
    */
   @Override
-  public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup) {
-    var nbt = new NbtCompound();
-    writeNbt(nbt, registryLookup);
-    return nbt;
+  public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registries) {
+    return this.createComponentlessNbt(registries);
   }
 
   @Override

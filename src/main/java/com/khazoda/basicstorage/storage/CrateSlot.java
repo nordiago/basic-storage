@@ -10,9 +10,6 @@ import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleSlotStorage;
 import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
 import net.fabricmc.fabric.api.transfer.v1.transaction.base.SnapshotParticipant;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.registry.RegistryOps;
-import net.minecraft.registry.RegistryWrapper;
 
 import static com.khazoda.basicstorage.block.CrateBlock.canInsert;
 import static com.khazoda.basicstorage.storage.CrateStationHelper.notifyNearbyStations;
@@ -139,19 +136,16 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot>
     update();
   }
 
-  public void readNbt(Optional<NbtCompound> nbtCompound, RegistryWrapper.WrapperLookup registryLookup) {
+  public void readNbt(Optional<NbtCompound> nbtCompound) {
     NbtCompound nbt = nbtCompound.orElseGet(() -> new NbtCompound());
     count = (int) nbt.getLong("count", 0);
-    item = ItemVariant.CODEC.parse(
-      RegistryOps.of(NbtOps.INSTANCE, registryLookup),
-      nbt.getCompound("item").orElseGet(() -> new NbtCompound())
-    ).getOrThrow();
+    item = nbt.get("item", ItemVariant.CODEC).orElse(ItemVariant.blank());
     if (item.isBlank())
       count = 0;
   }
 
-  public void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-    nbt.put("item", ItemVariant.CODEC.encodeStart(RegistryOps.of(NbtOps.INSTANCE, registryLookup), item).getOrThrow());
+  public void writeNbt(NbtCompound nbt) {
+    nbt.put("item", ItemVariant.CODEC, item);
     nbt.putLong("count", count);
   }
 
