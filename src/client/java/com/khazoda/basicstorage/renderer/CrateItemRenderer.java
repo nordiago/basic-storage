@@ -1,8 +1,8 @@
 package com.khazoda.basicstorage.renderer;
 
 import com.khazoda.basicstorage.Constants;
-import com.khazoda.basicstorage.mixin.RenderSystemAccessor;
 import com.khazoda.basicstorage.registry.DataComponentRegistry;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.minecraft.client.MinecraftClient;
@@ -16,7 +16,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.RotationAxis;
 import org.joml.Quaternionf;
-import org.joml.Vector3f;
 
 import java.util.Objects;
 
@@ -67,23 +66,22 @@ public class CrateItemRenderer implements ModelLoadingPlugin {
     var stack = item.toStack();
     // var model = itemRenderer.getModel(stack, null, null, 0);
 
-    var lights = new Vector3f[2];
-    System.arraycopy(RenderSystemAccessor.getShaderLightDirections(), 0, lights, 0, 2);
+    var lights = RenderSystem.getShaderLights();
 
-    // Temporarily disabled due to rendering changes in 1.21.4
+    // Temporarily disabled due to rendering changes in 1.21.4 thru 1.21.8
     // if (model.isSideLit()) {
     if (true) {
       matrices.peek().getNormalMatrix().rotate(ITEM_LIGHT_ROTATION_3D);
-      DiffuseLighting.enableGuiDepthLighting();
+      // DiffuseLighting.enableGuiDepthLighting();
     } else {
       matrices.peek().getNormalMatrix().rotate(ITEM_LIGHT_ROTATION_FLAT);
-      DiffuseLighting.disableGuiDepthLighting();
+      // DiffuseLighting.disableGuiDepthLighting();
     }
 
     // itemRenderer.renderItem(stack, ModelTransformationMode.GUI, false, matrices, vertexConsumers, light, OverlayTexture.DEFAULT_UV, model);
     itemRenderer.renderItem(stack, ItemDisplayContext.GUI, light, OverlayTexture.DEFAULT_UV, matrices, vertexConsumers, null, 0);
 
-    System.arraycopy(lights, 0, RenderSystemAccessor.getShaderLightDirections(), 0, 2);
+    RenderSystem.setShaderLights(lights);
     matrices.pop();
   }
 

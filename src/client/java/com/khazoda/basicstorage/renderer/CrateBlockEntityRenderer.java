@@ -2,8 +2,8 @@ package com.khazoda.basicstorage.renderer;
 
 import com.khazoda.basicstorage.block.CrateBlock;
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
-import com.khazoda.basicstorage.mixin.RenderSystemAccessor;
 import com.khazoda.basicstorage.util.NumberFormatter;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.minecraft.block.Block;
 import net.minecraft.block.entity.BlockEntity;
@@ -26,7 +26,6 @@ import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
-import org.joml.Vector3f;
 
 import java.util.Objects;
 
@@ -95,22 +94,21 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     var stack = item.toStack();
     // var model = itemRenderer.getModel(stack, world, null, seed);
 
-    var lights = new Vector3f[2];
-    System.arraycopy(RenderSystemAccessor.getShaderLightDirections(), 0, lights, 0, 2);
+    var lights = RenderSystem.getShaderLights();
 
-    // Temporarily disabled due to rendering changes in 1.21.4
+    // Temporarily disabled due to rendering changes in 1.21.4 thru 1.21.8
     // if (model.isSideLit()) {
     if (true) {
       matrices.peek().getNormalMatrix().rotate(ITEM_LIGHT_ROTATION_3D);
-      DiffuseLighting.enableGuiDepthLighting();
+      // DiffuseLighting.enableGuiDepthLighting();
     } else {
       matrices.peek().getNormalMatrix().rotate(ITEM_LIGHT_ROTATION_FLAT);
-      DiffuseLighting.disableGuiDepthLighting();
+      // DiffuseLighting.disableGuiDepthLighting();
     }
 
     itemRenderer.renderItem(stack, ItemDisplayContext.GUI, light, OverlayTexture.DEFAULT_UV, matrices, vertexConsumers, world, seed);
 
-    System.arraycopy(lights, 0, RenderSystemAccessor.getShaderLightDirections(), 0, 2);
+    RenderSystem.setShaderLights(lights);
     matrices.pop();
   }
 
@@ -122,7 +120,7 @@ public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockE
     String formattedCount = NumberFormatter.format(Integer.parseInt(count));
 
     matrices.scale(0.02f, 0.02f, 0.02f);
-    textRenderer.draw(formattedCount, -textRenderer.getWidth(formattedCount) / 2f, 0, 0xFFDD99, false, matrices.peek().getPositionMatrix(), vertexConsumers, TextRenderer.TextLayerType.NORMAL, 0x000000, light);
+    textRenderer.draw(formattedCount, -textRenderer.getWidth(formattedCount) / 2f, 0, 0xFFFFDD99, false, matrices.peek().getPositionMatrix(), vertexConsumers, TextRenderer.TextLayerType.NORMAL, 0, light);
     matrices.pop();
   }
 

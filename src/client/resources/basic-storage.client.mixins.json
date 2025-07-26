@@ -3,7 +3,6 @@
 	"package": "com.khazoda.basicstorage.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
-		"RenderSystemAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1
