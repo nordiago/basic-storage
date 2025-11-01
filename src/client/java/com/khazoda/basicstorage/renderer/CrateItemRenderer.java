@@ -6,9 +6,9 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.DiffuseLighting;
-import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.item.ItemRenderState;
 import net.minecraft.client.render.item.ItemRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemDisplayContext;
@@ -42,16 +42,11 @@ public class CrateItemRenderer implements ModelLoadingPlugin {
     }
   }
 
-  private void renderCrate(ItemStack stack, ItemDisplayContext mode, MatrixStack matrices, VertexConsumerProvider vertexConsumerProvider, int light, int overlay, ItemRenderer itemRenderer, boolean hasContents) {
+  private void renderCrate(ItemStack stack, ItemDisplayContext context, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay, ItemRenderer itemRenderer, boolean hasContents) {
     matrices.push();
     matrices.translate(.5, .5, .5);
-    if (hasContents) {
-      // itemRenderer.renderItem(stack, mode, false, matrices, vertexConsumerProvider, Math.round(light / 1.5f), overlay, crateModel);
-      itemRenderer.renderItem(stack, mode, Math.round(light / 1.5f), overlay, matrices, vertexConsumerProvider, null, 0);
-    } else {
-      // itemRenderer.renderItem(stack, mode, false, matrices, vertexConsumerProvider, light, overlay, crateModel);
-      itemRenderer.renderItem(stack, mode, light, overlay, matrices, vertexConsumerProvider, null, 0);
-    }
+    itemRenderer.renderItem(context, matrices, vertexConsumers, light, overlay, null, null, RenderLayer.getSolid(), ItemRenderState.Glint.NONE);
+
     // crateModel.getTransformation().getTransformation(mode).apply(false, matrices);
     matrices.pop();
   }
@@ -68,27 +63,12 @@ public class CrateItemRenderer implements ModelLoadingPlugin {
 
     var lights = RenderSystem.getShaderLights();
 
-    // Temporarily disabled due to rendering changes in 1.21.4 thru 1.21.8
-    // if (model.isSideLit()) {
-    if (true) {
-      matrices.peek().getNormalMatrix().rotate(ITEM_LIGHT_ROTATION_3D);
-      // DiffuseLighting.enableGuiDepthLighting();
-    } else {
-      matrices.peek().getNormalMatrix().rotate(ITEM_LIGHT_ROTATION_FLAT);
-      // DiffuseLighting.disableGuiDepthLighting();
-    }
+    matrices.peek().getNormalMatrix().rotate(ITEM_LIGHT_ROTATION_3D);
 
     // itemRenderer.renderItem(stack, ModelTransformationMode.GUI, false, matrices, vertexConsumers, light, OverlayTexture.DEFAULT_UV, model);
-    itemRenderer.renderItem(stack, ItemDisplayContext.GUI, light, OverlayTexture.DEFAULT_UV, matrices, vertexConsumers, null, 0);
 
     RenderSystem.setShaderLights(lights);
     matrices.pop();
-  }
-
-  private static void flipHorizontally(MatrixStack matrix) {
-    /* Global operation applied to second rotation (quaternions are so weird) */
-    matrix.multiply(new Quaternionf(0.24, -0.37, -0.1, 0.89)); // rotates face to the front left face
-    matrix.multiply(new Quaternionf(0.24, 0.37, 0.1, 0.89).invert()); // rotates back to base orientation
   }
 
   @Override

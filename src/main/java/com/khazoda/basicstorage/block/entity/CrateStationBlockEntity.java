@@ -29,7 +29,7 @@ public class CrateStationBlockEntity extends BlockEntity {
   }
 
   private void buildCrateCache() {
-    if (world == null || world.isClient)
+    if (world == null || world.isClient())
       return;
 
     crateRegistry.clear();

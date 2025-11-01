@@ -1,5 +1,6 @@
 package com.khazoda.basicstorage.block.entity;
 
+import com.khazoda.basicstorage.block.CrateBlock;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.registry.DataComponentRegistry;
 import com.khazoda.basicstorage.storage.CrateSlot;
@@ -16,9 +17,13 @@ import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.storage.ReadView;
 import net.minecraft.storage.WriteView;
+import net.minecraft.util.HeldItemContext;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 
-public class CrateBlockEntity extends BlockEntity {
+public class CrateBlockEntity extends BlockEntity implements HeldItemContext {
   public final CrateSlot storage = new CrateSlot(this);
 
   /**
@@ -97,5 +102,17 @@ public class CrateBlockEntity extends BlockEntity {
       t.commit();
     }
     this.refresh();
+  }
+
+  public World getEntityWorld() {
+    return this.world;
+  }
+
+  public Vec3d getEntityPos() {
+    return this.getPos().toCenterPos();
+  }
+
+  public float getBodyYaw() {
+    return ((Direction)this.getCachedState().get(CrateBlock.FACING)).getOpposite().getPositiveHorizontalDegrees();
   }
 }
