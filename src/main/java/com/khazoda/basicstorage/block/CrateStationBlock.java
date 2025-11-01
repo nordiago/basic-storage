@@ -8,7 +8,6 @@ import com.khazoda.basicstorage.registry.SoundRegistry;
 import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
-import net.fabricmc.fabric.api.transfer.v1.item.PlayerInventoryStorage;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
@@ -46,7 +45,7 @@ import java.util.List;
  * Left Click - Nothing
  * Shift Left Click - Nothing
  */
-public class CrateStationBlock extends BlockWithEntity implements BlockEntityProvider {
+public class CrateStationBlock extends BlockWithEntity {
   public static final MapCodec<CrateStationBlock> CODEC = CrateStationBlock.createCodec(CrateStationBlock::new);
   public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(3.5f)
       .pistonBehavior(PistonBehavior.BLOCK).instrument(NoteBlockInstrument.BASS).mapColor(MapColor.OAK_TAN);
@@ -156,7 +155,6 @@ public class CrateStationBlock extends BlockWithEntity implements BlockEntityPro
 
   private static int depositInventory(PlayerEntity player, CrateStationBlockEntity cdbe) {
     int inserted = 0;
-    PlayerInventoryStorage invStorage = PlayerInventoryStorage.of(player);
     World world = cdbe.getWorld();
 
     for (int i = 0; i < player.getInventory().getMainStacks().size(); i++) {

@@ -3,124 +3,107 @@ package com.khazoda.basicstorage.renderer;
 import com.khazoda.basicstorage.block.CrateBlock;
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.util.NumberFormatter;
-import com.mojang.blaze3d.systems.RenderSystem;
-import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.minecraft.block.Block;
 import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.font.TextRenderer.TextLayerType;
+import net.minecraft.client.item.ItemModelManager;
+import net.minecraft.client.render.command.ModelCommandRenderer;
+import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
-import net.minecraft.client.render.item.ItemRenderer;
+import net.minecraft.client.render.item.ItemRenderState;
+import net.minecraft.client.render.state.CameraRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.item.ItemStack;
+import net.minecraft.text.OrderedText;
+import net.minecraft.text.StringVisitable;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 
 import java.util.Objects;
 
-public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockEntity> {
-  private static final Quaternionf ITEM_LIGHT_ROTATION_3D = RotationAxis.POSITIVE_X.rotationDegrees(-15).mul(RotationAxis.POSITIVE_Y.rotationDegrees(15));
-  private static final Quaternionf ITEM_LIGHT_ROTATION_FLAT = RotationAxis.POSITIVE_X.rotationDegrees(-45);
-
-  private final ItemRenderer itemRenderer;
+public class CrateBlockEntityRenderer implements BlockEntityRenderer<CrateBlockEntity, CrateBlockEntityRenderState> {
+  private final ItemModelManager itemModelManager;
   private final TextRenderer textRenderer;
 
   public CrateBlockEntityRenderer(BlockEntityRendererFactory.Context context) {
-    this.itemRenderer = context.getItemRenderer();
-    this.textRenderer = context.getTextRenderer();
+    this.itemModelManager = context.itemModelManager();
+    this.textRenderer = context.textRenderer();
   }
 
-  @Override
-  public void render(CrateBlockEntity be, float tickProgress, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay, Vec3d cameraPos) {
-    var horizontalDir = be.getCachedState().get(CrateBlock.FACING);
-    var dir = CrateBlock.getFront(be.getCachedState());
-    var world = be.getWorld();
-
-    ItemVariant itemVariant = be.storage.getResource();
-    String itemCount = String.valueOf(be.storage.getAmount());
-    BlockPos pos = be.getPos();
-
-    if (!shouldRenderBE(be, dir)) return;
-
-    matrices.push();
-    alignMatrices(matrices, horizontalDir);
-
-    light = WorldRenderer.getLightmapCoordinates(Objects.requireNonNull(be.getWorld()), pos.offset(dir));
-    renderCrateInfo(itemVariant, itemCount, matrices, vertexConsumers, light, (int) pos.asLong(), pos, world);
-    matrices.pop();
+  public CrateBlockEntityRenderState createRenderState() {
+    return new CrateBlockEntityRenderState();
   }
 
-  public void renderCrateInfo(ItemVariant item, @Nullable String amount, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int seed, BlockPos pos, World world) {
-    if (amount == null || amount.equals("0")) {
+  public void updateRenderState(
+    CrateBlockEntity be,
+    CrateBlockEntityRenderState crateState,
+    float progress,
+    Vec3d camera,
+    @Nullable ModelCommandRenderer.CrumblingOverlayCommand crumbling
+  ) {
+      BlockEntityRenderer.super.updateRenderState(be, crateState, progress, camera, crumbling);
+
+      if (be.storage.isResourceBlank()) {
+        return;
+      }
+
+      ItemStack itemStack = be.storage.getResource().toStack();
+
+      ItemRenderState itemState = new ItemRenderState();
+      this.itemModelManager.clearAndUpdate(
+        itemState, itemStack, ItemDisplayContext.GUI, be.getWorld(), be, 0
+      );
+      crateState.itemRenderState = itemState;
+      crateState.itemCount = be.storage.getAmount();
+
+      Direction dir = CrateBlock.getFront(be.getCachedState());
+      crateState.lightmapCoordinates = WorldRenderer.getLightmapCoordinates(Objects.requireNonNull(be.getWorld()), be.getPos().offset(dir));
+   }
+
+  public void render(CrateBlockEntityRenderState crateState, MatrixStack matrices, OrderedRenderCommandQueue queue, CameraRenderState camera) {
+    Direction direction = (Direction) crateState.blockState.get(CrateBlock.FACING);
+    float rotation = direction.getAxis().isHorizontal() ? -direction.getPositiveHorizontalDegrees() : 180.0F;
+
+    ItemRenderState itemState = crateState.itemRenderState;
+
+    if (itemState == null || crateState.itemCount == 0) {
       return;
     }
-    var player = MinecraftClient.getInstance().player;
-    var playerPos = player == null ? Vec3d.ofCenter(pos) : player.getPos();
-    var distance = 0;
-    if (player != null) {
-      if (player.isUsingSpyglass()) {
-        distance = 100;
-      } else {
-        distance = 40;
-      }
-    }
-    if (pos.isWithinDistance(playerPos, distance)) {
-      renderText(amount, light, matrices, vertexConsumers);
-      renderItem(item, light, matrices, vertexConsumers, world, seed);
-    }
-  }
 
-  @SuppressWarnings("UnreachableCode")
-  public void renderItem(ItemVariant item, int light, MatrixStack matrices, VertexConsumerProvider vertexConsumers, World world, int seed) {
-    if (item.isBlank()) return;
+    alignMatrices(matrices, direction);
 
+    this.renderItem(crateState, itemState, matrices, queue, rotation);
+    this.renderText(crateState, matrices, queue);
+   }
+
+  private void renderItem(CrateBlockEntityRenderState crateState, ItemRenderState itemState, MatrixStack matrices, OrderedRenderCommandQueue queue, float rotation) {
     matrices.push();
     matrices.translate(0f, 0.125f, 0f);
     matrices.scale(0.5f, 0.5f, 0.5f);
     matrices.scale(0.75f, 0.75f, 1);
     matrices.peek().getPositionMatrix().mul(new Matrix4f().scale(1, 1, 0.01f));
-
-    var stack = item.toStack();
-    // var model = itemRenderer.getModel(stack, world, null, seed);
-
-    var lights = RenderSystem.getShaderLights();
-
-    // Temporarily disabled due to rendering changes in 1.21.4 thru 1.21.8
-    // if (model.isSideLit()) {
-    if (true) {
-      matrices.peek().getNormalMatrix().rotate(ITEM_LIGHT_ROTATION_3D);
-      // DiffuseLighting.enableGuiDepthLighting();
-    } else {
-      matrices.peek().getNormalMatrix().rotate(ITEM_LIGHT_ROTATION_FLAT);
-      // DiffuseLighting.disableGuiDepthLighting();
-    }
-
-    itemRenderer.renderItem(stack, ItemDisplayContext.GUI, light, OverlayTexture.DEFAULT_UV, matrices, vertexConsumers, world, seed);
-
-    RenderSystem.setShaderLights(lights);
+    itemState.render(matrices, queue, crateState.lightmapCoordinates, OverlayTexture.DEFAULT_UV, 0);
     matrices.pop();
   }
 
-  public void renderText(String count, int light, MatrixStack matrices, VertexConsumerProvider vertexConsumers) {
+  public void renderText(CrateBlockEntityRenderState state, MatrixStack matrices, OrderedRenderCommandQueue queue) {
+    String itemCount = String.valueOf(state.itemCount);
+    String formattedCount = NumberFormatter.format(Integer.parseInt(itemCount));
+    OrderedText orderedText = textRenderer.wrapLines(StringVisitable.plain(formattedCount), 128).get(0);
+
     matrices.push();
     matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(180));
     matrices.translate(0f, 0.21f, -0.01f);
-
-    String formattedCount = NumberFormatter.format(Integer.parseInt(count));
-
     matrices.scale(0.02f, 0.02f, 0.02f);
-    textRenderer.draw(formattedCount, -textRenderer.getWidth(formattedCount) / 2f, 0, 0xFFFFDD99, false, matrices.peek().getPositionMatrix(), vertexConsumers, TextRenderer.TextLayerType.NORMAL, 0, light);
+    queue.submitText(matrices, -textRenderer.getWidth(formattedCount) / 2f, 0, orderedText, false, TextLayerType.POLYGON_OFFSET, state.lightmapCoordinates, 0xFFFFDD99, 0, 0);
     matrices.pop();
   }
 

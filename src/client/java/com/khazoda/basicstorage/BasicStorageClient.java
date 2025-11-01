@@ -27,7 +27,7 @@ public class BasicStorageClient implements ClientModInitializer {
     BlockEntityRendererFactories.register(BlockEntityRegistry.CRATE_BLOCK_ENTITY, CrateBlockEntityRenderer::new);
 //    ModelPredicateProviderRegistry.register(BlockRegistry.CRATE_BLOCK.asItem(), HAS_ITEMS_ID, HAS_ITEMS);
     // BuiltinItemRendererRegistry.INSTANCE.register(BlockRegistry.CRATE_BLOCK, new CrateItemRenderer());
-    ModelLoadingPlugin.register(new CrateItemRenderer());
+    // ModelLoadingPlugin.register(new CrateItemRenderer());
 
     /* Version Get & Wiki commands */
     ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess)

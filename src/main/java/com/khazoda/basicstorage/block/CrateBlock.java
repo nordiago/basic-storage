@@ -15,8 +15,8 @@ import net.fabricmc.fabric.api.transfer.v1.item.PlayerInventoryStorage;
 import net.fabricmc.fabric.api.transfer.v1.storage.StorageUtil;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.block.Block;
-import net.minecraft.block.BlockEntityProvider;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.BlockWithEntity;
 import net.minecraft.block.MapColor;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.enums.NoteBlockInstrument;
@@ -59,7 +59,7 @@ import static java.lang.Math.toIntExact;
  * Left Click - Remove one item
  * Shift Left Click - Remove one stack
  */
-public class CrateBlock extends Block implements BlockEntityProvider {
+public class CrateBlock extends BlockWithEntity {
   public static final MapCodec<CrateBlock> CODEC = CrateBlock.createCodec(CrateBlock::new);
   public static final EnumProperty<Direction> FACING = Properties.HORIZONTAL_FACING;
   public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(2.5f)
@@ -351,7 +351,7 @@ public class CrateBlock extends Block implements BlockEntityProvider {
    * 1-16 items = signal strength, loops to 1 billion
    */
   @Override
-  public int getComparatorOutput(BlockState state, World world, BlockPos pos) {
+  protected int getComparatorOutput(BlockState state, World world, BlockPos pos, Direction direction) {
     BlockEntity be = world.getBlockEntity(pos);
     if (be instanceof CrateBlockEntity cbe) {
       return BlockUtils.getComparatorOutputStrength(toIntExact(cbe.storage.getAmount()));
