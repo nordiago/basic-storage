@@ -83,7 +83,7 @@ public class CrateBlock extends BlockWithEntity {
   public CrateBlock(Settings settings) {
     super(settings);
     random = new Random();
-    setDefaultState(this.stateManager.getDefaultState().with(ORIENTATION,Orientation.NORTH_UP).with(FACING, Direction.NORTH));
+    setDefaultState(this.stateManager.getDefaultState().with(ORIENTATION, Orientation.NORTH_UP).with(FACING, Direction.NORTH));
   }
 
   public CrateBlock() {
@@ -92,7 +92,7 @@ public class CrateBlock extends BlockWithEntity {
 
   @Override
   public void onPlaced(World world, BlockPos pos, BlockState state, @Nullable LivingEntity placer,
-                       ItemStack itemStack) {
+      ItemStack itemStack) {
     super.onPlaced(world, pos, state, placer, itemStack);
     notifyNearbyStations(world, pos);
     world.emitGameEvent(placer, GameEvent.BLOCK_PLACE, pos);
@@ -198,7 +198,7 @@ public class CrateBlock extends BlockWithEntity {
    * UseBlockCallback helper method
    **/
   private static int insertMaximum(PlayerEntity player, ItemStack playerStack, CrateSlot slot,
-                                   Transaction transaction) {
+      Transaction transaction) {
     /*
      * Insert as many items as possible from player's inventory if slot is empty, or
      * matches held stack
@@ -320,7 +320,7 @@ public class CrateBlock extends BlockWithEntity {
 
   @Override
   protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
-    builder.add(ORIENTATION,FACING);
+    builder.add(ORIENTATION, FACING);
   }
 
   @Override
@@ -379,6 +379,7 @@ public class CrateBlock extends BlockWithEntity {
     }
     super.neighborUpdate(state, world, pos, sourceBlock, wireOrientation, notify);
   }
+
   /* Todo: remove this method after migration period */
   private static void fixLegacyState(BlockState state, World world, BlockPos pos) {
     Orientation currentOrientation = state.get(ORIENTATION);
@@ -387,12 +388,12 @@ public class CrateBlock extends BlockWithEntity {
       return;
     }
     if (legacyFacing != Direction.NORTH) {
-      Constants.BS_LOG.warn("[Crate Migration] Fixing block at {}. Legacy says '{}', but Orientation was Default.", pos, legacyFacing);
+      Constants.BS_LOG.warn("[Crate Migration] Fixing block at x={} y={} z={}. Legacy says '{}', but Orientation was Default.", pos.getX(), pos.getY(), pos.getZ(), legacyFacing);
       Orientation fixedOrientation = Orientation.byDirections(legacyFacing, Direction.UP);
       BlockState fixedState = state.with(ORIENTATION, fixedOrientation);
       world.setBlockState(pos, fixedState, Block.NOTIFY_ALL);
 
-      Constants.BS_LOG.info("[Crate Migration] FIXED {}: Rotated to '{}'", pos, fixedOrientation);
+      Constants.BS_LOG.info("[Crate Migration] FIXED x={} y={} z={}: Rotated to '{}'", pos.getX(), pos.getY(), pos.getZ(), fixedOrientation);
     }
   }
 
