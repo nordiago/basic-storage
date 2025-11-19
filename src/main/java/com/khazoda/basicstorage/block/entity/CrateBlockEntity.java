@@ -5,6 +5,9 @@ import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.registry.DataComponentRegistry;
 import com.khazoda.basicstorage.storage.CrateSlot;
 import com.khazoda.basicstorage.structure.CrateSlotComponent;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -25,10 +28,11 @@ import net.minecraft.world.World;
 
 public class CrateBlockEntity extends BlockEntity implements HeldItemContext {
   public final CrateSlot storage = new CrateSlot(this);
+  public static final Codec<CrateSlotComponent> SLOT_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+      ItemVariant.CODEC.fieldOf("item").orElse(ItemVariant.blank()).forGetter(CrateSlotComponent::item),
+      Codec.INT.fieldOf("count").orElse(0).forGetter(CrateSlotComponent::count)
+  ).apply(instance, CrateSlotComponent::new));
 
-  /**
-   * Constructor
-   **/
   public CrateBlockEntity(BlockPos pos, BlockState state) {
     super(BlockEntityRegistry.CRATE_BLOCK_ENTITY, pos, state);
   }
@@ -47,19 +51,20 @@ public class CrateBlockEntity extends BlockEntity implements HeldItemContext {
 
   /**
    * NBT Operations
-   **/
+   * WriteView creates the RegistryOps internally,
+   * allowing Enchantments and other registry-dependent data to be saved correctly.
+   */
   @Override
   protected void writeData(WriteView view) {
     super.writeData(view);
-    var storageNbt = new NbtCompound();
-    storage.writeNbt(storageNbt);
-    view.put("crateStack", NbtCompound.CODEC, storageNbt);
+    CrateSlotComponent component = storage.toComponent();
+    view.put("crateStack", SLOT_CODEC, component);
   }
 
   @Override
   protected void readData(ReadView view) {
     super.readData(view);
-    storage.readNbt(view.read("crateStack", NbtCompound.CODEC));
+    view.read("crateStack", SLOT_CODEC).ifPresent(storage::readComponent);
   }
 
   /**
@@ -104,15 +109,7 @@ public class CrateBlockEntity extends BlockEntity implements HeldItemContext {
     this.refresh();
   }
 
-  public World getEntityWorld() {
-    return this.world;
-  }
-
-  public Vec3d getEntityPos() {
-    return this.getPos().toCenterPos();
-  }
-
-  public float getBodyYaw() {
-    return ((Direction)this.getCachedState().get(CrateBlock.FACING)).getOpposite().getPositiveHorizontalDegrees();
-  }
+  public World getEntityWorld() { return this.world; }
+  public Vec3d getEntityPos() { return this.getPos().toCenterPos(); }
+  public float getBodyYaw() { return this.getCachedState().get(CrateBlock.FACING).getOpposite().getPositiveHorizontalDegrees(); }
 }
