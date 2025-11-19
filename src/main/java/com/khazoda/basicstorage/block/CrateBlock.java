@@ -3,7 +3,6 @@ package com.khazoda.basicstorage.block;
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.registry.DataComponentRegistry;
-import com.khazoda.basicstorage.registry.ItemRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
 import com.khazoda.basicstorage.storage.CrateSlot;
 import com.khazoda.basicstorage.util.BlockUtils;
@@ -112,8 +111,6 @@ public class CrateBlock extends BlockWithEntity {
 
       CrateBlockEntity cbe = (CrateBlockEntity) be;
       ItemStack playerStack = player.getMainHandStack();
-      if (playerStack.isOf(ItemRegistry.CRATE_HAMMER_ITEM))
-        return ActionResult.PASS;
       CrateSlot slot = cbe.storage;
 
       // Todo: Enable for debugging
