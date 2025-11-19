@@ -1,10 +1,11 @@
 package com.khazoda.basicstorage;
 
+import net.minecraft.util.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Constants {
-  public static final String BS_VERSION = "1.1.2"; // Change version every update
+  public static Identifier ID(String name) {return Identifier.of(BS_NAMESPACE,name);}
   public static final String BS_NAMESPACE = "basicstorage";
   public static final String BS_NAME = "Basic Storage";
   public static final Logger BS_LOG = LoggerFactory.getLogger(BS_NAME);
