@@ -3,10 +3,12 @@ package com.khazoda.basicstorage;
 import com.khazoda.basicstorage.config.ConfigSyncPayload;
 import com.khazoda.basicstorage.registry.*;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.item.v1.ComponentTooltipAppenderRegistry;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.component.DataComponentTypes;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemGroups;
 import net.minecraft.item.Items;
@@ -36,6 +38,8 @@ public class BasicStorage implements ModInitializer {
     SoundRegistry.init();
     EventRegistry.init();
     DataComponentRegistry.init();
+
+    ComponentTooltipAppenderRegistry.addFirst(DataComponentRegistry.CRATE_CONTENTS);
 
     ItemGroupEvents.modifyEntriesEvent(ItemGroups.REDSTONE).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_STATION_BLOCK));
     ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_STATION_BLOCK));
