@@ -9,7 +9,10 @@ import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
-import net.minecraft.block.*;
+import net.minecraft.block.BlockRenderType;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.BlockWithEntity;
+import net.minecraft.block.MapColor;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.BlockEntityTicker;
 import net.minecraft.block.entity.BlockEntityType;
@@ -68,6 +71,9 @@ public class CrateStationBlock extends BlockWithEntity {
         return ActionResult.PASS;
       if (!player.canModifyBlocks() || player.isSpectator())
         return ActionResult.PASS;
+      if (player.getStackInHand(hand).isOf(BlockRegistry.CRATE_BLOCK.asItem()) && player.isSneaking()) {
+        return ActionResult.PASS;
+      }
 
       BlockPos pos = hit.getBlockPos();
       BlockState state = world.getBlockState(pos);
@@ -189,7 +195,7 @@ public class CrateStationBlock extends BlockWithEntity {
   @Nullable
   @Override
   public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state,
-                                                                BlockEntityType<T> type) {
+      BlockEntityType<T> type) {
     return validateTicker(type, BlockEntityRegistry.CRATE_STATION_BLOCK_ENTITY, CrateStationBlockEntity::tick);
   }
 
