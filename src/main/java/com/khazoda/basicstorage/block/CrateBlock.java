@@ -26,10 +26,10 @@ import net.minecraft.block.piston.PistonBehavior;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.pathing.NavigationType;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.AxeItem;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.loot.context.LootWorldContext;
+import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.BlockSoundGroup;
 import net.minecraft.sound.SoundCategory;
@@ -73,11 +73,11 @@ public class CrateBlock extends BlockWithEntity {
 
   private static Block.Settings getCrateSettings() {
     return Settings.create()
-        .sounds(BlockSoundGroup.WOOD)
-        .pistonBehavior(PistonBehavior.BLOCK)
-        .instrument(NoteBlockInstrument.BASS)
-        .mapColor(MapColor.OAK_TAN)
-        .strength(1f);
+            .sounds(BlockSoundGroup.WOOD)
+            .pistonBehavior(PistonBehavior.BLOCK)
+            .instrument(NoteBlockInstrument.BASS)
+            .mapColor(MapColor.OAK_TAN)
+            .strength(1f);
   }
 
   public CrateBlock(Settings settings) {
@@ -92,7 +92,7 @@ public class CrateBlock extends BlockWithEntity {
 
   @Override
   public void onPlaced(World world, BlockPos pos, BlockState state, @Nullable LivingEntity placer,
-      ItemStack itemStack) {
+                       ItemStack itemStack) {
     super.onPlaced(world, pos, state, placer, itemStack);
     notifyNearbyStations(world, pos);
     world.emitGameEvent(placer, GameEvent.BLOCK_PLACE, pos);
@@ -100,12 +100,14 @@ public class CrateBlock extends BlockWithEntity {
 
   @Override
   protected float calcBlockBreakingDelta(BlockState state, PlayerEntity player, BlockView world, BlockPos pos) {
+    if (!player.canModifyBlocks()) return super.calcBlockBreakingDelta(state, player, world, pos);
     if (BasicStorageConfig.getInstance().breakWithAxeOnly()) {
-      ItemStack mainHandStack = player.getMainHandStack();
-      if (mainHandStack.getItem() instanceof AxeItem) {
+      boolean usingAxe = player.getMainHandStack().isIn(ItemTags.AXES);
+      if (usingAxe) {
         return super.calcBlockBreakingDelta(state, player, world, pos);
+      } else {
+        return 0.0f;
       }
-      return 0.0f;
     }
     return super.calcBlockBreakingDelta(state, player, world, pos);
   }
@@ -198,7 +200,7 @@ public class CrateBlock extends BlockWithEntity {
    * UseBlockCallback helper method
    **/
   private static int insertMaximum(PlayerEntity player, ItemStack playerStack, CrateSlot slot,
-      Transaction transaction) {
+                                   Transaction transaction) {
     /*
      * Insert as many items as possible from player's inventory if slot is empty, or
      * matches held stack
@@ -213,7 +215,7 @@ public class CrateBlock extends BlockWithEntity {
     } else {
       /* Insert into crate with items */
       return (int) StorageUtil.move(PlayerInventoryStorage.of(player), slot, itemVariant -> true, Integer.MAX_VALUE,
-          transaction);
+              transaction);
     }
   }
 
@@ -227,7 +229,7 @@ public class CrateBlock extends BlockWithEntity {
       message = Text.translatable("message.basicstorage.crate.empty").withColor(0xFFDD99);
     } else {
       message = Text.literal(NumberFormatter.toFormattedNumber(slot.getAmount()) + " "
-          + slot.getResource().getItem().getName().getString()).withColor(0xFFDD99);
+              + slot.getResource().getItem().getName().getString()).withColor(0xFFDD99);
     }
     player.sendMessage(message, true);
     return ActionResult.CONSUME;
@@ -250,7 +252,7 @@ public class CrateBlock extends BlockWithEntity {
       if (stack.isDamaged())
         return false;
       if (stack.isOf(BlockRegistry.CRATE_BLOCK.asItem())
-          && stack.contains(DataComponentRegistry.CRATE_CONTENTS))
+              && stack.contains(DataComponentRegistry.CRATE_CONTENTS))
         return false;
       if (!ItemVariant.of(stack).equals(slot.getResource()) && !slot.isBlank())
         return false;
@@ -282,7 +284,7 @@ public class CrateBlock extends BlockWithEntity {
 
       if (extracted == 1)
         world.playSound(null, pos, SoundRegistry.EXTRACT_ONE, SoundCategory.BLOCKS, 0.6f,
-            1.2f + ((-1 + random.nextFloat() * (1 + 1)) / 10));
+                1.2f + ((-1 + random.nextFloat() * (1 + 1)) / 10));
       if (extracted > 1)
         world.playSound(null, pos, SoundRegistry.EXTRACT_MANY, SoundCategory.BLOCKS, 0.75f, 1f);
       world.playSound(null, pos, SoundEvents.ENTITY_ITEM_PICKUP, SoundCategory.BLOCKS, 0.35f, 1f);
@@ -303,7 +305,7 @@ public class CrateBlock extends BlockWithEntity {
       CrateBlockEntity cbe = (CrateBlockEntity) be;
       if (!world.isClient() && player.isCreative() && !cbe.storage.getResource().toStack().isEmpty()) {
         getDroppedStacks(state, (ServerWorld) world, pos, cbe, player, player.getStackInHand(Hand.MAIN_HAND))
-            .forEach(stack -> ItemScatterer.spawn(world, pos.getX(), pos.getY(), pos.getZ(), stack));
+                .forEach(stack -> ItemScatterer.spawn(world, pos.getX(), pos.getY(), pos.getZ(), stack));
       }
     }
     return super.onBreak(world, pos, state, player);
@@ -356,8 +358,8 @@ public class CrateBlock extends BlockWithEntity {
     }
 
     return this.getDefaultState()
-        .with(Properties.ORIENTATION, Orientation.byDirections(facing, rotation))
-        .with(Properties.HORIZONTAL_FACING, legacyFacing); //Todo: remove after migration period
+            .with(Properties.ORIENTATION, Orientation.byDirections(facing, rotation))
+            .with(Properties.HORIZONTAL_FACING, legacyFacing); //Todo: remove after migration period
   }
 
   @Override
