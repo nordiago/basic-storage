@@ -1,6 +1,10 @@
 {
   "model": {
-      "type": "minecraft:model",
-      "model": "basicstorage:block/crate"
+    "type": "minecraft:special",
+    "base": "basicstorage:block/crate",
+    "model": {
+      "type": "basicstorage:crate_renderer",
+      "block": "basicstorage:crate"
+    }
   }
 }
