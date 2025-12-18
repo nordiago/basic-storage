@@ -43,7 +43,6 @@ public class BasicStorageConfig {
       try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
         properties.load(reader);
       }
-      LOG.info("[Basic Storage] Config loaded successfully");
     } catch (IOException e) {
       LOG.error("[Basic Storage] Failed to load config: " + e.getMessage());
     }
