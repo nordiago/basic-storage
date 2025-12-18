@@ -45,7 +45,7 @@ public class CrateItemRenderer implements ModelLoadingPlugin {
   private void renderCrate(ItemStack stack, ItemDisplayContext context, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, int overlay, ItemRenderer itemRenderer, boolean hasContents) {
     matrices.push();
     matrices.translate(.5, .5, .5);
-    itemRenderer.renderItem(context, matrices, vertexConsumers, light, overlay, null, null, RenderLayer.getSolid(), ItemRenderState.Glint.NONE);
+//    itemRenderer.renderItem(context, matrices, vertexConsumers, light, overlay, null, null, RenderLayer.getSolid(), ItemRenderState.Glint.NONE);
 
     // crateModel.getTransformation().getTransformation(mode).apply(false, matrices);
     matrices.pop();
