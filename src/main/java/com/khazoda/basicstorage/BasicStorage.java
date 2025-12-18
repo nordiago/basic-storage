@@ -22,8 +22,10 @@ public class BasicStorage implements ModInitializer {
   public void onInitialize() {
     PayloadTypeRegistry.playS2C().register(ConfigSyncPayload.ID, ConfigSyncPayload.CODEC);
     ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-      boolean serverConfigValue = BasicStorageConfig.getInstance().breakWithAxeOnly();
-      ServerPlayNetworking.send(handler.getPlayer(), new ConfigSyncPayload(serverConfigValue));
+      boolean serverBreakWithAxeOnly = BasicStorageConfig.getInstance().breakWithAxeOnly();
+      boolean serverCanBreakIfFull = BasicStorageConfig.getInstance().canBreakIfFull();
+
+      ServerPlayNetworking.send(handler.getPlayer(), new ConfigSyncPayload(serverBreakWithAxeOnly, serverCanBreakIfFull));
     });
     BasicStorageConfig.getInstance().load();
     Registry.register(Registries.ITEM_GROUP, Identifier.of(Constants.NAMESPACE), BW_ITEMGROUP);

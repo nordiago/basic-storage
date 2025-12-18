@@ -28,23 +28,47 @@ public class BasicStorageConfig {
   }
 
   public void load() {
-    try {
-      if (!Files.exists(CONFIG_PATH)) {
-        Files.createDirectories(CONFIG_PATH.getParent());
-        try (Writer writer = Files.newBufferedWriter(CONFIG_PATH)) {
-          writer.write("# Basic Storage Configuration\n\n");
-
-          writer.write("# If true, crates can only be broken using an axe.\n");
-          writer.write("# If false, crates can be broken with anything.\n");
-          writer.write("break_with_axe_only=false\n\n");
-        }
-      }
-
+    if (Files.exists(CONFIG_PATH)) {
       try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
         properties.load(reader);
+      } catch (IOException e) {
+        LOG.error("[Basic Storage] Failed to load config: {}", e.getMessage());
+      }
+    }
+
+    boolean modified = false;
+
+    if (!properties.containsKey("break_with_axe_only")) {
+      properties.setProperty("break_with_axe_only", "false");
+      modified = true;
+    }
+
+    if (!properties.containsKey("can_break_if_full")) {
+      properties.setProperty("can_break_if_full", "true");
+      modified = true;
+    }
+
+    if (modified || !Files.exists(CONFIG_PATH)) {
+      save();
+    }
+  }
+
+  public void save() {
+    try {
+      Files.createDirectories(CONFIG_PATH.getParent());
+      try (Writer writer = Files.newBufferedWriter(CONFIG_PATH)) {
+        writer.write("# Basic Storage Configuration\n\n");
+
+        writer.write("# If true, crates can only be broken using an axe.\n");
+        writer.write("# If false, crates can be broken with anything.\n");
+        writer.write("break_with_axe_only=" + properties.getProperty("break_with_axe_only") + "\n\n");
+
+        writer.write("# If true, crates containing items can be broken, picked up and moved\n");
+        writer.write("# If false, crates containing items can not be broken \n");
+        writer.write("can_break_if_full=" + properties.getProperty("can_break_if_full") + "\n");
       }
     } catch (IOException e) {
-      LOG.error("[Basic Storage] Failed to load config: " + e.getMessage());
+      LOG.error("[Basic Storage] Failed to save config: {}", e.getMessage());
     }
   }
 
@@ -52,8 +76,15 @@ public class BasicStorageConfig {
     return Boolean.parseBoolean(properties.getProperty("break_with_axe_only", "false"));
   }
 
+  public boolean canBreakIfFull() {
+    return Boolean.parseBoolean(properties.getProperty("can_break_if_full", "true"));
+  }
+
   public void setBreakWithAxeOnly(boolean value) {
-    // Explicitly not saving this value, as it's just for runtime while connected to a server
     properties.setProperty("break_with_axe_only", String.valueOf(value));
+  }
+
+  public void setCanBreakIfFull(boolean value) {
+    properties.setProperty("can_break_if_full", String.valueOf(value));
   }
 }

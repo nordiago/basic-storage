@@ -26,7 +26,9 @@ public class BasicStorageClient implements ClientModInitializer {
     ClientPlayNetworking.registerGlobalReceiver(ConfigSyncPayload.ID, (payload, context) -> {
       context.client().execute(() -> {
         BasicStorageConfig.getInstance().setBreakWithAxeOnly(payload.breakWithAxeOnly());
+        BasicStorageConfig.getInstance().setCanBreakIfFull(payload.canBreakIfFull());
         Constants.LOG.info("Synced config from server: Axe Only = {}", payload.breakWithAxeOnly());
+        Constants.LOG.info("Synced config from server: Can Break If Full = {}", payload.canBreakIfFull());
       });
     });
 

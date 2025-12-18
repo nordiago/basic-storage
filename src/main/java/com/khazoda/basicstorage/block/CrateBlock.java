@@ -98,16 +98,25 @@ public class CrateBlock extends BlockWithEntity {
     world.emitGameEvent(placer, GameEvent.BLOCK_PLACE, pos);
   }
 
+
+  @Override
+  public float getBlastResistance() {
+    if (BasicStorageConfig.getInstance().breakWithAxeOnly() || !BasicStorageConfig.getInstance().canBreakIfFull()) {
+      return 3600000.0f;
+    }
+    return super.getBlastResistance();
+  }
+
   @Override
   protected float calcBlockBreakingDelta(BlockState state, PlayerEntity player, BlockView world, BlockPos pos) {
-    if (!player.canModifyBlocks()) return super.calcBlockBreakingDelta(state, player, world, pos);
+    if (!player.canModifyBlocks()) return 0.0f;
+    if (!BasicStorageConfig.getInstance().canBreakIfFull()) {
+      BlockEntity be = world.getBlockEntity(pos);
+      if (be instanceof CrateBlockEntity cbe && !cbe.storage.isBlank()) return 0.0f;
+    }
     if (BasicStorageConfig.getInstance().breakWithAxeOnly()) {
       boolean usingAxe = player.getMainHandStack().isIn(ItemTags.AXES);
-      if (usingAxe) {
-        return super.calcBlockBreakingDelta(state, player, world, pos);
-      } else {
-        return 0.0f;
-      }
+      if (!usingAxe) return 0.0f;
     }
     return super.calcBlockBreakingDelta(state, player, world, pos);
   }
