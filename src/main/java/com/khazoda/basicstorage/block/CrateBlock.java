@@ -73,11 +73,11 @@ public class CrateBlock extends BlockWithEntity {
 
   private static Block.Settings getCrateSettings() {
     return Settings.create()
-            .sounds(BlockSoundGroup.WOOD)
-            .pistonBehavior(PistonBehavior.BLOCK)
-            .instrument(NoteBlockInstrument.BASS)
-            .mapColor(MapColor.OAK_TAN)
-            .strength(1f);
+        .sounds(BlockSoundGroup.WOOD)
+        .pistonBehavior(PistonBehavior.BLOCK)
+        .instrument(NoteBlockInstrument.BASS)
+        .mapColor(MapColor.OAK_TAN)
+        .strength(1f);
   }
 
   public CrateBlock(Settings settings) {
@@ -215,7 +215,7 @@ public class CrateBlock extends BlockWithEntity {
     } else {
       /* Insert into crate with items */
       return (int) StorageUtil.move(PlayerInventoryStorage.of(player), slot, itemVariant -> true, Integer.MAX_VALUE,
-              transaction);
+          transaction);
     }
   }
 
@@ -229,7 +229,7 @@ public class CrateBlock extends BlockWithEntity {
       message = Text.translatable("message.basicstorage.crate.empty").withColor(0xFFDD99);
     } else {
       message = Text.literal(NumberFormatter.toFormattedNumber(slot.getAmount()) + " "
-              + slot.getResource().getItem().getName().getString()).withColor(0xFFDD99);
+          + slot.getResource().getItem().getName().getString()).withColor(0xFFDD99);
     }
     player.sendMessage(message, true);
     return ActionResult.CONSUME;
@@ -252,7 +252,7 @@ public class CrateBlock extends BlockWithEntity {
       if (stack.isDamaged())
         return false;
       if (stack.isOf(BlockRegistry.CRATE_BLOCK.asItem())
-              && stack.contains(DataComponentRegistry.CRATE_CONTENTS))
+          && stack.contains(DataComponentRegistry.CRATE_CONTENTS))
         return false;
       if (!ItemVariant.of(stack).equals(slot.getResource()) && !slot.isBlank())
         return false;
@@ -284,7 +284,7 @@ public class CrateBlock extends BlockWithEntity {
 
       if (extracted == 1)
         world.playSound(null, pos, SoundRegistry.EXTRACT_ONE, SoundCategory.BLOCKS, 0.6f,
-                1.2f + ((-1 + random.nextFloat() * (1 + 1)) / 10));
+            1.2f + ((-1 + random.nextFloat() * (1 + 1)) / 10));
       if (extracted > 1)
         world.playSound(null, pos, SoundRegistry.EXTRACT_MANY, SoundCategory.BLOCKS, 0.75f, 1f);
       world.playSound(null, pos, SoundEvents.ENTITY_ITEM_PICKUP, SoundCategory.BLOCKS, 0.35f, 1f);
@@ -305,7 +305,7 @@ public class CrateBlock extends BlockWithEntity {
       CrateBlockEntity cbe = (CrateBlockEntity) be;
       if (!world.isClient() && player.isCreative() && !cbe.storage.getResource().toStack().isEmpty()) {
         getDroppedStacks(state, (ServerWorld) world, pos, cbe, player, player.getStackInHand(Hand.MAIN_HAND))
-                .forEach(stack -> ItemScatterer.spawn(world, pos.getX(), pos.getY(), pos.getZ(), stack));
+            .forEach(stack -> ItemScatterer.spawn(world, pos.getX(), pos.getY(), pos.getZ(), stack));
       }
     }
     return super.onBreak(world, pos, state, player);
@@ -358,8 +358,8 @@ public class CrateBlock extends BlockWithEntity {
     }
 
     return this.getDefaultState()
-            .with(Properties.ORIENTATION, Orientation.byDirections(facing, rotation))
-            .with(Properties.HORIZONTAL_FACING, legacyFacing); //Todo: remove after migration period
+        .with(Properties.ORIENTATION, Orientation.byDirections(facing, rotation))
+        .with(Properties.HORIZONTAL_FACING, legacyFacing); //Todo: remove after migration period
   }
 
   @Override
@@ -390,12 +390,12 @@ public class CrateBlock extends BlockWithEntity {
       return;
     }
     if (legacyFacing != Direction.NORTH) {
-      Constants.BS_LOG.warn("[Crate Migration] Fixing block at x={} y={} z={}. Legacy says '{}', but Orientation was Default.", pos.getX(), pos.getY(), pos.getZ(), legacyFacing);
+      Constants.LOG.warn("[Crate Migration] Fixing block at x={} y={} z={}. Legacy says '{}', but Orientation was Default.", pos.getX(), pos.getY(), pos.getZ(), legacyFacing);
       Orientation fixedOrientation = Orientation.byDirections(legacyFacing, Direction.UP);
       BlockState fixedState = state.with(ORIENTATION, fixedOrientation);
       world.setBlockState(pos, fixedState, Block.NOTIFY_ALL);
 
-      Constants.BS_LOG.info("[Crate Migration] FIXED x={} y={} z={}: Rotated to '{}'", pos.getX(), pos.getY(), pos.getZ(), fixedOrientation);
+      Constants.LOG.info("[Crate Migration] FIXED x={} y={} z={}: Rotated to '{}'", pos.getX(), pos.getY(), pos.getZ(), fixedOrientation);
     }
   }
 

@@ -5,9 +5,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Constants {
-  public static Identifier ID(String name) {return Identifier.of(BS_NAMESPACE,name);}
-  public static final String BS_NAMESPACE = "basicstorage";
-  public static final String BS_NAME = "Basic Storage";
-  public static final Logger BS_LOG = LoggerFactory.getLogger(BS_NAME);
+  public static Identifier ID(String name) {
+    return Identifier.of(NAMESPACE, name);
+  }
+
+  public static final String NAMESPACE = "basicstorage";
+  public static final String NAME = "Basic Storage";
+  public static final Logger LOG = LoggerFactory.getLogger(NAME);
   public static final int CRATE_MAX_COUNT = 1000000000; // 1 Billion
 }

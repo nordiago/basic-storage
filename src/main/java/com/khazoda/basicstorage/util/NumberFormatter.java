@@ -13,6 +13,7 @@ public class NumberFormatter {
   }
 
   private static final NavigableMap<Integer, String> suffixes = new TreeMap<>();
+
   static {
     suffixes.put(1_000, "K");
     suffixes.put(1_000_000, "M");

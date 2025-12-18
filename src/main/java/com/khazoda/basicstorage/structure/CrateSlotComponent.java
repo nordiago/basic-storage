@@ -3,16 +3,17 @@ package com.khazoda.basicstorage.structure;
 import com.khazoda.basicstorage.util.NumberFormatter;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import java.util.function.Consumer;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.minecraft.component.ComponentsAccess;
 import net.minecraft.item.Item;
 import net.minecraft.item.tooltip.TooltipAppender;
 import net.minecraft.item.tooltip.TooltipType;
+import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.text.Text;
+
+import java.util.function.Consumer;
 
 public record CrateSlotComponent(ItemVariant item, int count) implements TooltipAppender {
   public static final CrateSlotComponent DEFAULT = new CrateSlotComponent(ItemVariant.blank(), 0);

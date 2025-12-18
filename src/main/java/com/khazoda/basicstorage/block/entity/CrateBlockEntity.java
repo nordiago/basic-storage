@@ -22,7 +22,6 @@ import net.minecraft.storage.ReadView;
 import net.minecraft.storage.WriteView;
 import net.minecraft.util.HeldItemContext;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
@@ -109,7 +108,15 @@ public class CrateBlockEntity extends BlockEntity implements HeldItemContext {
     this.refresh();
   }
 
-  public World getEntityWorld() { return this.world; }
-  public Vec3d getEntityPos() { return this.getPos().toCenterPos(); }
-  public float getBodyYaw() { return this.getCachedState().get(CrateBlock.FACING).getOpposite().getPositiveHorizontalDegrees(); }
+  public World getEntityWorld() {
+    return this.world;
+  }
+
+  public Vec3d getEntityPos() {
+    return this.getPos().toCenterPos();
+  }
+
+  public float getBodyYaw() {
+    return this.getCachedState().get(CrateBlock.FACING).getOpposite().getPositiveHorizontalDegrees();
+  }
 }

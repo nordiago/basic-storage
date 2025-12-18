@@ -1,6 +1,5 @@
 package com.khazoda.basicstorage.registry;
 
-import com.khazoda.basicstorage.BasicStorage;
 import com.khazoda.basicstorage.Constants;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
@@ -16,10 +15,9 @@ public class SoundRegistry {
   public static final SoundEvent NO_MATCH = register("no_match");
 
   public static void init() {
-    BasicStorage.loadedRegistries += 1;
   }
 
   private static SoundEvent register(String name) {
-    return Registry.register(Registries.SOUND_EVENT, name, SoundEvent.of(Identifier.of(Constants.BS_NAMESPACE, name)));
+    return Registry.register(Registries.SOUND_EVENT, name, SoundEvent.of(Identifier.of(Constants.NAMESPACE, name)));
   }
 }

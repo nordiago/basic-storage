@@ -1,6 +1,5 @@
 package com.khazoda.basicstorage.registry;
 
-import com.khazoda.basicstorage.BasicStorage;
 import com.khazoda.basicstorage.block.CrateBlock;
 import com.khazoda.basicstorage.block.CrateStationBlock;
 import net.minecraft.block.Block;
@@ -25,7 +24,6 @@ public class BlockRegistry {
       "crate_station", CrateStationBlock::new, CrateStationBlock.defaultSettings);
 
   public static void init() {
-    BasicStorage.loadedRegistries += 1;
   }
 
   private static Block register(

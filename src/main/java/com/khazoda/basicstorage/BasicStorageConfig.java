@@ -9,7 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
 
-import static com.khazoda.basicstorage.Constants.BS_LOG;
+import static com.khazoda.basicstorage.Constants.LOG;
 
 public class BasicStorageConfig {
   private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("basicstorage.properties");
@@ -43,9 +43,9 @@ public class BasicStorageConfig {
       try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
         properties.load(reader);
       }
-      BS_LOG.info("[Basic Storage] Config loaded successfully");
+      LOG.info("[Basic Storage] Config loaded successfully");
     } catch (IOException e) {
-      BS_LOG.error("[Basic Storage] Failed to load config: " + e.getMessage());
+      LOG.error("[Basic Storage] Failed to load config: " + e.getMessage());
     }
   }
 

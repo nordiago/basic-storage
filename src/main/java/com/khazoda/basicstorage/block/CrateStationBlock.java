@@ -195,7 +195,7 @@ public class CrateStationBlock extends BlockWithEntity {
   @Nullable
   @Override
   public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state,
-      BlockEntityType<T> type) {
+                                                                BlockEntityType<T> type) {
     return validateTicker(type, BlockEntityRegistry.CRATE_STATION_BLOCK_ENTITY, CrateStationBlockEntity::tick);
   }
 
