@@ -14,7 +14,6 @@ import net.minecraft.client.render.item.ItemRenderState;
 import net.minecraft.client.render.item.model.special.SpecialModelRenderer;
 import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemDisplayContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
@@ -76,18 +75,20 @@ public class CrateItemSpecialRenderer implements SpecialModelRenderer<ItemStack>
       ItemStack innerStack = content.item().toStack();
       ItemRenderState innerItemState = new ItemRenderState();
 
+      client.getItemModelManager().update(innerItemState, innerStack, ItemDisplayContext.FIXED, client.world, null, seed);
+
       matrices.push();
       matrices.translate(0.5f, 0.5f, -0.01f);
 
-      if (content.item().getItem() instanceof BlockItem) {
+      if (innerItemState.isSideLit()) {
+        /* Proper Block */
+        matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90));
         matrices.scale(1.25f, 1.25f, 1.25f);
-        matrices.translate(0f, 0f, 0.2f);
+        matrices.translate(0f, 0.23f, 0f);
       } else {
+        /* Item Sprite */
         matrices.scale(0.75f, 0.75f, 0.75f);
       }
-
-      client.getItemModelManager().update(innerItemState, innerStack, ItemDisplayContext.FIXED, client.world, null, seed);
-
       innerItemState.render(matrices, queue, light, overlay, seed);
       matrices.pop();
     }
