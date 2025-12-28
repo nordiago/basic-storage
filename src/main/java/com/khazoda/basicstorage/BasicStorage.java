@@ -8,15 +8,16 @@ import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.item.ItemGroup;
-import net.minecraft.item.ItemGroups;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.Items;
 
 public class BasicStorage implements ModInitializer {
-  public static final ItemGroup BW_ITEMGROUP = ItemGroupRegistry.createItemGroup();
+
+  public static final CreativeModeTab BW_ITEMGROUP = ItemGroupRegistry.createItemGroup();
 
   @Override
   public void onInitialize() {
@@ -28,7 +29,7 @@ public class BasicStorage implements ModInitializer {
       ServerPlayNetworking.send(handler.getPlayer(), new ConfigSyncPayload(serverBreakWithAxeOnly, serverCanBreakIfFull));
     });
     BasicStorageConfig.getInstance().load();
-    Registry.register(Registries.ITEM_GROUP, Identifier.of(Constants.NAMESPACE), BW_ITEMGROUP);
+    Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, Identifier.parse(Constants.NAMESPACE), BW_ITEMGROUP);
     BlockRegistry.init();
     BlockEntityRegistry.init();
     SoundRegistry.init();
@@ -37,8 +38,8 @@ public class BasicStorage implements ModInitializer {
 
     ComponentTooltipAppenderRegistry.addFirst(DataComponentRegistry.CRATE_CONTENTS);
 
-    ItemGroupEvents.modifyEntriesEvent(ItemGroups.REDSTONE).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_STATION_BLOCK));
-    ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_STATION_BLOCK));
+    ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.REDSTONE_BLOCKS).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_STATION_BLOCK));
+    ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.FUNCTIONAL_BLOCKS).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_STATION_BLOCK));
     Constants.LOG.info("- Basic Storage Loaded -");
   }
 }

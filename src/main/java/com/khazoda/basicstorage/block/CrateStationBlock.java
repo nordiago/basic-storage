@@ -9,28 +9,28 @@ import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
-import net.minecraft.block.BlockRenderType;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.BlockWithEntity;
-import net.minecraft.block.MapColor;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.block.enums.NoteBlockInstrument;
-import net.minecraft.block.piston.PistonBehavior;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.sound.BlockSoundGroup;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.stat.Stats;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
-import net.minecraft.world.event.GameEvent;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.stats.Stats;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.NoteBlockInstrument;
+import net.minecraft.world.level.gameevent.GameEvent;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.PushReaction;
+import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -48,12 +48,13 @@ import java.util.List;
  * Left Click - Nothing
  * Shift Left Click - Nothing
  */
-public class CrateStationBlock extends BlockWithEntity {
-  public static final MapCodec<CrateStationBlock> CODEC = CrateStationBlock.createCodec(CrateStationBlock::new);
-  public static final Settings defaultSettings = Settings.create().sounds(BlockSoundGroup.WOOD).strength(3.5f)
-      .pistonBehavior(PistonBehavior.BLOCK).instrument(NoteBlockInstrument.BASS).mapColor(MapColor.OAK_TAN);
+public class CrateStationBlock extends BaseEntityBlock {
 
-  public CrateStationBlock(Settings settings) {
+  public static final MapCodec<CrateStationBlock> CODEC = CrateStationBlock.simpleCodec(CrateStationBlock::new);
+  public static final Properties defaultSettings = Properties.of().sound(SoundType.WOOD).strength(3.5f)
+      .pushReaction(PushReaction.BLOCK).instrument(NoteBlockInstrument.BASS).mapColor(MapColor.WOOD);
+
+  public CrateStationBlock(Properties settings) {
     super(settings);
   }
 
@@ -66,13 +67,13 @@ public class CrateStationBlock extends BlockWithEntity {
    * sneaking
    */
   public static void initOnUseMethod() {
-    UseBlockCallback.EVENT.register((PlayerEntity player, World world, Hand hand, BlockHitResult hit) -> {
-      if (!world.getBlockState(hit.getBlockPos()).isOf(BlockRegistry.CRATE_STATION_BLOCK))
-        return ActionResult.PASS;
-      if (!player.canModifyBlocks() || player.isSpectator())
-        return ActionResult.PASS;
-      if (player.getStackInHand(hand).isOf(BlockRegistry.CRATE_BLOCK.asItem()) && player.isSneaking()) {
-        return ActionResult.PASS;
+    UseBlockCallback.EVENT.register((Player player, Level world, InteractionHand hand, BlockHitResult hit) -> {
+      if (!world.getBlockState(hit.getBlockPos()).is(BlockRegistry.CRATE_STATION_BLOCK))
+        return InteractionResult.PASS;
+      if (!player.mayBuild() || player.isSpectator())
+        return InteractionResult.PASS;
+      if (player.getItemInHand(hand).is(BlockRegistry.CRATE_BLOCK.asItem()) && player.isShiftKeyDown()) {
+        return InteractionResult.PASS;
       }
 
       BlockPos pos = hit.getBlockPos();
@@ -80,50 +81,50 @@ public class CrateStationBlock extends BlockWithEntity {
       BlockEntity be = world.getBlockEntity(pos);
 
       if (be == null)
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
 
       CrateStationBlockEntity cdbe = (CrateStationBlockEntity) be;
-      ItemStack playerStack = player.getMainHandStack();
+      ItemStack playerStack = player.getMainHandItem();
       int connectedCrateCount = cdbe.getConnectedCrates().size();
       int inserted = 0;
 
-      if (player.isSneaking()) {
+      if (player.isShiftKeyDown()) {
         inserted = depositInventory(player, cdbe);
-      } else if (!player.isSneaking()) {
+      } else if (!player.isShiftKeyDown()) {
         if (playerStack.isEmpty()) {
-          if (!world.isClient())
-            player.sendMessage(
-                Text.translatable("message.basicstorage.station.connected_crate_count", connectedCrateCount)
+          if (!world.isClientSide())
+            player.displayClientMessage(
+                Component.translatable("message.basicstorage.station.connected_crate_count", connectedCrateCount)
                     .withColor(0xDDFF99),
                 true);
-          return ActionResult.PASS;
+          return InteractionResult.PASS;
         }
-        inserted = depositStack(player.getStackInHand(hand), cdbe);
+        inserted = depositStack(player.getItemInHand(hand), cdbe);
       }
 
-      if (!world.isClient()) {
+      if (!world.isClientSide()) {
         if (inserted <= 0) {
-          player.sendMessage(Text.translatable("message.basicstorage.station.no_matching_crates").withColor(0xFF9999),
+          player.displayClientMessage(Component.translatable("message.basicstorage.station.no_matching_crates").withColor(0xFF9999),
               true);
-          world.playSound(null, pos, SoundRegistry.NO_MATCH, SoundCategory.BLOCKS, 1.1f, 1f);
-          return ActionResult.CONSUME;
+          world.playSound(null, pos, SoundRegistry.NO_MATCH, SoundSource.BLOCKS, 1.1f, 1f);
+          return InteractionResult.CONSUME;
         }
 
         if (inserted == 1) {
-          world.playSound(null, pos, SoundRegistry.INSERT_ONE, SoundCategory.BLOCKS, 1f, 1.05f);
+          world.playSound(null, pos, SoundRegistry.INSERT_ONE, SoundSource.BLOCKS, 1f, 1.05f);
         } else if (inserted <= 64) {
-          world.playSound(null, pos, SoundRegistry.INSERT_MANY, SoundCategory.BLOCKS, 1f, 1.05f);
+          world.playSound(null, pos, SoundRegistry.INSERT_MANY, SoundSource.BLOCKS, 1f, 1.05f);
         } else {
-          world.playSound(null, pos, SoundRegistry.INSERT_LOADS, SoundCategory.BLOCKS, 1f, 1.05f);
+          world.playSound(null, pos, SoundRegistry.INSERT_LOADS, SoundSource.BLOCKS, 1f, 1.05f);
         }
 
-        state.updateNeighbors(world, pos, 1);
-        cdbe.markDirty();
-        player.incrementStat(Stats.USED.getOrCreateStat(playerStack.getItem()));
-        world.emitGameEvent(player, GameEvent.BLOCK_CHANGE, pos);
+        state.updateNeighbourShapes(world, pos, 1);
+        cdbe.setChanged();
+        player.awardStat(Stats.ITEM_USED.get(playerStack.getItem()));
+        world.gameEvent(player, GameEvent.BLOCK_CHANGE, pos);
       }
 
-      return ActionResult.SUCCESS;
+      return InteractionResult.SUCCESS;
     });
   }
 
@@ -136,7 +137,7 @@ public class CrateStationBlock extends BlockWithEntity {
     List<BlockPos> compatibleCrates = cdbe.getCrateRegistry().get(variant);
     if (compatibleCrates == null)
       return 0;
-    World world = cdbe.getWorld();
+    Level world = cdbe.getLevel();
 
     for (BlockPos cratePos : new ArrayList<>(compatibleCrates)) {
       if (world == null)
@@ -150,7 +151,7 @@ public class CrateStationBlock extends BlockWithEntity {
       try (Transaction transaction = Transaction.openOuter()) {
         inserted = (int) crate.storage.insert(variant, stack.getCount(), transaction);
         if (inserted > 0) {
-          stack.decrement(inserted);
+          stack.shrink(inserted);
           transaction.commit();
           return inserted;
         }
@@ -159,12 +160,12 @@ public class CrateStationBlock extends BlockWithEntity {
     return inserted;
   }
 
-  private static int depositInventory(PlayerEntity player, CrateStationBlockEntity cdbe) {
+  private static int depositInventory(Player player, CrateStationBlockEntity cdbe) {
     int inserted = 0;
-    World world = cdbe.getWorld();
+    Level world = cdbe.getLevel();
 
-    for (int i = 0; i < player.getInventory().getMainStacks().size(); i++) {
-      ItemStack stack = player.getInventory().getMainStacks().get(i);
+    for (int i = 0; i < player.getInventory().getNonEquipmentItems().size(); i++) {
+      ItemStack stack = player.getInventory().getNonEquipmentItems().get(i);
       if (!stack.isEmpty()) {
         ItemVariant variant = ItemVariant.of(stack);
         List<BlockPos> compatibleCrates = cdbe.getCrateRegistry().get(variant);
@@ -180,7 +181,7 @@ public class CrateStationBlock extends BlockWithEntity {
             try (Transaction transaction = Transaction.openOuter()) {
               inserted += (int) crate.storage.insert(variant, stack.getCount(), transaction);
               if (inserted > 0) {
-                stack.decrement(inserted);
+                stack.shrink(inserted);
                 transaction.commit();
                 break;
               }
@@ -194,29 +195,29 @@ public class CrateStationBlock extends BlockWithEntity {
 
   @Nullable
   @Override
-  public <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state,
+  public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level world, BlockState state,
                                                                 BlockEntityType<T> type) {
-    return validateTicker(type, BlockEntityRegistry.CRATE_STATION_BLOCK_ENTITY, CrateStationBlockEntity::tick);
+    return createTickerHelper(type, BlockEntityRegistry.CRATE_STATION_BLOCK_ENTITY, CrateStationBlockEntity::tick);
   }
 
   @Nullable
   @Override
-  public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+  public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
     return new CrateStationBlockEntity(pos, state);
   }
 
   @Override
-  public BlockState getPlacementState(ItemPlacementContext ctx) {
-    return this.getDefaultState();
+  public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+    return this.defaultBlockState();
   }
 
   @Override
-  protected BlockRenderType getRenderType(BlockState state) {
-    return BlockRenderType.MODEL;
+  protected RenderShape getRenderShape(BlockState state) {
+    return RenderShape.MODEL;
   }
 
   @Override
-  public MapCodec<CrateStationBlock> getCodec() {
+  public MapCodec<CrateStationBlock> codec() {
     return CODEC;
   }
 }

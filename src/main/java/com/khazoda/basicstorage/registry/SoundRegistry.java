@@ -1,12 +1,13 @@
 package com.khazoda.basicstorage.registry;
 
 import com.khazoda.basicstorage.Constants;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
 
 public class SoundRegistry {
+
   public static final SoundEvent EXTRACT_ONE = register("extract_one");
   public static final SoundEvent EXTRACT_MANY = register("extract_many");
   public static final SoundEvent INSERT_ONE = register("insert_one");
@@ -18,6 +19,6 @@ public class SoundRegistry {
   }
 
   private static SoundEvent register(String name) {
-    return Registry.register(Registries.SOUND_EVENT, name, SoundEvent.of(Identifier.of(Constants.NAMESPACE, name)));
+    return Registry.register(BuiltInRegistries.SOUND_EVENT, name, SoundEvent.createVariableRangeEvent(Identifier.fromNamespaceAndPath(Constants.NAMESPACE, name)));
   }
 }

@@ -12,6 +12,7 @@ import java.util.Properties;
 import static com.khazoda.basicstorage.Constants.LOG;
 
 public class BasicStorageConfig {
+
   private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("basicstorage.properties");
   private static BasicStorageConfig INSTANCE;
   private final Properties properties;

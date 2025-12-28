@@ -2,21 +2,22 @@ package com.khazoda.basicstorage.registry;
 
 import com.khazoda.basicstorage.block.CrateBlock;
 import com.khazoda.basicstorage.block.CrateStationBlock;
-import net.minecraft.block.Block;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
 
 import java.util.function.Function;
 
 import static com.khazoda.basicstorage.Constants.ID;
 
-
 public class BlockRegistry {
-  public static final Item.Settings crateItemSettings = new Item.Settings().maxCount(64).fireproof();
+
+  public static final Item.Properties crateItemSettings = new Item.Properties().stacksTo(64).fireResistant();
 
   public static final Block CRATE_BLOCK = register(
       "crate", CrateBlock::new, CrateBlock.defaultSettings);
@@ -27,21 +28,21 @@ public class BlockRegistry {
   }
 
   private static Block register(
-      String name, Function<Block.Settings, Block> factory,
-      Block.Settings blockSettings) {
+      String name, Function<Properties, Block> factory,
+      Properties blockSettings) {
 
     // Block form
-    RegistryKey<Block> blockKey = RegistryKey.of(RegistryKeys.BLOCK, ID(name));
-    Block block = factory.apply(blockSettings.registryKey(blockKey));
-    Registry.register(Registries.BLOCK, blockKey, block);
+    ResourceKey<Block> blockKey = ResourceKey.create(Registries.BLOCK, ID(name));
+    Block block = factory.apply(blockSettings.setId(blockKey));
+    Registry.register(BuiltInRegistries.BLOCK, blockKey, block);
 
     // Item form
-    RegistryKey<Item> itemKey = RegistryKey.of(RegistryKeys.ITEM, ID(name));
+    ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, ID(name));
     // Here, useBlockPrefixedTranslationKey() sets "block.namespace.path" translation
     // key format. Without it, the client reverts to using "item.namespace.path" format.
-    BlockItem item = new BlockItem(block, crateItemSettings.useBlockPrefixedTranslationKey().registryKey(itemKey));
-    item.appendBlocks(Item.BLOCK_ITEMS, item);
-    Registry.register(Registries.ITEM, itemKey, item);
+    BlockItem item = new BlockItem(block, crateItemSettings.useBlockDescriptionPrefix().setId(itemKey));
+    item.registerBlocks(Item.BY_BLOCK, item);
+    Registry.register(BuiltInRegistries.ITEM, itemKey, item);
     return block;
   }
 }

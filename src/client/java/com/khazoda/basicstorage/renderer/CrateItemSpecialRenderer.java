@@ -1,24 +1,24 @@
 package com.khazoda.basicstorage.renderer;
 
 import com.khazoda.basicstorage.registry.DataComponentRegistry;
-import com.mojang.serialization.MapCodec;
+import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.fabricmc.api.EnvType;
+import com.mojang.serialization.MapCodec;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.item.ItemRenderState;
-import net.minecraft.client.render.item.model.special.SpecialModelRenderer;
-import net.minecraft.client.util.BufferAllocator;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.RotationAxis;
+import net.fabricmc.api.EnvType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.special.SpecialModelRenderer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
@@ -36,84 +36,84 @@ public class CrateItemSpecialRenderer implements SpecialModelRenderer<ItemStack>
   }
 
   @Override
-  public @Nullable ItemStack getData(ItemStack stack) {
+  public @Nullable ItemStack extractArgument(ItemStack stack) {
     return stack;
   }
 
   @Override
-  public void render(@Nullable ItemStack data, ItemDisplayContext displayContext, MatrixStack matrices, OrderedRenderCommandQueue queue, int light, int overlay, boolean glint, int seed) {
+  public void submit(@Nullable ItemStack data, ItemDisplayContext displayContext, PoseStack matrices, SubmitNodeCollector queue, int light, int overlay, boolean glint, int seed) {
     if (data == null) return;
-    MinecraftClient client = MinecraftClient.getInstance();
+    Minecraft client = Minecraft.getInstance();
 
     boolean hasContents = false;
-    if (data.contains(DataComponentRegistry.CRATE_CONTENTS)) {
+    if (data.has(DataComponentRegistry.CRATE_CONTENTS)) {
       var content = data.get(DataComponentRegistry.CRATE_CONTENTS);
       if (content != null && !content.item().isBlank()) {
         hasContents = true;
       }
     }
 
-    matrices.push();
+    matrices.pushPose();
 
-    if ((displayContext == ItemDisplayContext.GUI || displayContext == ItemDisplayContext.GROUND || displayContext.isFirstPerson()) && hasContents) {
+    if ((displayContext == ItemDisplayContext.GUI || displayContext == ItemDisplayContext.GROUND || displayContext.firstPerson()) && hasContents) {
       matrices.translate(0.5f, 0.5f, 0.5f);
-      matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90));
+      matrices.mulPose(Axis.XP.rotationDegrees(90));
       matrices.translate(-0.5f, -0.5f, -0.5f);
     }
 
-    try (BufferAllocator allocator = new BufferAllocator(1536)) {
-      VertexConsumerProvider.Immediate immediate = VertexConsumerProvider.immediate(allocator);
+    try (ByteBufferBuilder allocator = new ByteBufferBuilder(1536)) {
+      MultiBufferSource.BufferSource immediate = MultiBufferSource.immediate(allocator);
 
-      matrices.push();
-      client.getBlockRenderManager().renderBlockAsEntity(this.baseCrateState, matrices, immediate, light, overlay);
-      matrices.pop();
-      immediate.draw();
+      matrices.pushPose();
+      client.getBlockRenderer().renderSingleBlock(this.baseCrateState, matrices, immediate, light, overlay);
+      matrices.popPose();
+      immediate.endBatch();
     }
 
     if (hasContents) {
       var content = data.get(DataComponentRegistry.CRATE_CONTENTS);
       ItemStack innerStack = content.item().toStack();
-      ItemRenderState innerItemState = new ItemRenderState();
+      ItemStackRenderState innerItemState = new ItemStackRenderState();
 
-      client.getItemModelManager().update(innerItemState, innerStack, ItemDisplayContext.FIXED, client.world, null, seed);
+      client.getItemModelResolver().appendItemLayers(innerItemState, innerStack, ItemDisplayContext.FIXED, client.level, null, seed);
 
-      matrices.push();
+      matrices.pushPose();
       matrices.translate(0.5f, 0.5f, -0.01f);
 
-      if (innerItemState.isSideLit()) {
+      if (innerItemState.usesBlockLight()) {
         /* Proper Block */
-        matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(90));
+        matrices.mulPose(Axis.XP.rotationDegrees(90));
         matrices.scale(1.25f, 1.25f, 1.25f);
         matrices.translate(0f, 0.23f, 0f);
       } else {
         /* Item Sprite */
         matrices.scale(0.75f, 0.75f, 0.75f);
       }
-      innerItemState.render(matrices, queue, light, overlay, seed);
-      matrices.pop();
+      innerItemState.submit(matrices, queue, light, overlay, seed);
+      matrices.popPose();
     }
-    matrices.pop();
+    matrices.popPose();
   }
 
   @Override
-  public void collectVertices(Consumer<Vector3fc> consumer) {
+  public void getExtents(Consumer<Vector3fc> consumer) {
     consumer.accept(new Vector3f(0.0f, 0.0f, 0.0f));
     consumer.accept(new Vector3f(1.0f, 1.0f, 1.0f));
   }
 
   @Environment(EnvType.CLIENT)
   public record Unbaked(Identifier blockId) implements SpecialModelRenderer.Unbaked {
-    public static final MapCodec<Unbaked> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(Identifier.CODEC.fieldOf("block").forGetter(Unbaked::blockId)).apply(instance, Unbaked::new));
+    public static final MapCodec<com.khazoda.basicstorage.renderer.CrateItemSpecialRenderer.Unbaked> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(Identifier.CODEC.fieldOf("block").forGetter(com.khazoda.basicstorage.renderer.CrateItemSpecialRenderer.Unbaked::blockId)).apply(instance, com.khazoda.basicstorage.renderer.CrateItemSpecialRenderer.Unbaked::new));
 
     @Override
-    public MapCodec<? extends SpecialModelRenderer.Unbaked> getCodec() {
+    public MapCodec<? extends SpecialModelRenderer.Unbaked> type() {
       return CODEC;
     }
 
     @Override
-    public @NonNull SpecialModelRenderer<ItemStack> bake(SpecialModelRenderer.BakeContext context) {
-      Block block = Registries.BLOCK.get(blockId);
-      return new CrateItemSpecialRenderer(block.getDefaultState());
+    public @NonNull SpecialModelRenderer<ItemStack> bake(SpecialModelRenderer.BakingContext context) {
+      Block block = BuiltInRegistries.BLOCK.getValue(blockId);
+      return new CrateItemSpecialRenderer(block.defaultBlockState());
     }
   }
 }

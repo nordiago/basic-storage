@@ -1,8 +1,8 @@
 package com.khazoda.basicstorage.block;
 
 import com.khazoda.basicstorage.BasicStorageConfig;
-import com.khazoda.basicstorage.Constants;
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
+import com.khazoda.basicstorage.Constants;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.registry.DataComponentRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
@@ -15,39 +15,43 @@ import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.item.PlayerInventoryStorage;
 import net.fabricmc.fabric.api.transfer.v1.storage.StorageUtil;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.BlockWithEntity;
-import net.minecraft.block.MapColor;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.enums.NoteBlockInstrument;
-import net.minecraft.block.enums.Orientation;
-import net.minecraft.block.piston.PistonBehavior;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.ai.pathing.NavigationType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.loot.context.LootWorldContext;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.BlockSoundGroup;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.stat.Stats;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.EnumProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.text.Text;
-import net.minecraft.util.*;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
-import net.minecraft.world.block.WireOrientation;
-import net.minecraft.world.event.GameEvent;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.FrontAndTop;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.stats.Stats;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.Containers;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.properties.NoteBlockInstrument;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.gameevent.GameEvent;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.PushReaction;
+import net.minecraft.world.level.pathfinder.PathComputationType;
+import net.minecraft.world.level.redstone.Orientation;
+import net.minecraft.world.level.storage.loot.LootParams;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -64,26 +68,27 @@ import static java.lang.Math.toIntExact;
  * Left Click - Remove one item
  * Shift Left Click - Remove one stack
  */
-public class CrateBlock extends BlockWithEntity {
-  public static final MapCodec<CrateBlock> CODEC = CrateBlock.createCodec(CrateBlock::new);
-  public static final EnumProperty<Direction> FACING = Properties.HORIZONTAL_FACING;
-  public static final EnumProperty<Orientation> ORIENTATION = Properties.ORIENTATION;
-  public static final Settings defaultSettings = getCrateSettings();
+public class CrateBlock extends BaseEntityBlock {
+
+  public static final MapCodec<CrateBlock> CODEC = CrateBlock.simpleCodec(CrateBlock::new);
+  public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
+  public static final EnumProperty<FrontAndTop> ORIENTATION = BlockStateProperties.ORIENTATION;
+  public static final Properties defaultSettings = getCrateSettings();
   private static Random random;
 
-  private static Block.Settings getCrateSettings() {
-    return Settings.create()
-        .sounds(BlockSoundGroup.WOOD)
-        .pistonBehavior(PistonBehavior.BLOCK)
+  private static Properties getCrateSettings() {
+    return Properties.of()
+        .sound(SoundType.WOOD)
+        .pushReaction(PushReaction.BLOCK)
         .instrument(NoteBlockInstrument.BASS)
-        .mapColor(MapColor.OAK_TAN)
+        .mapColor(MapColor.WOOD)
         .strength(1f);
   }
 
-  public CrateBlock(Settings settings) {
+  public CrateBlock(Properties settings) {
     super(settings);
     random = new Random();
-    setDefaultState(this.stateManager.getDefaultState().with(ORIENTATION, Orientation.NORTH_UP).with(FACING, Direction.NORTH));
+    registerDefaultState(this.stateDefinition.any().setValue(ORIENTATION, FrontAndTop.NORTH_UP).setValue(FACING, Direction.NORTH));
   }
 
   public CrateBlock() {
@@ -91,34 +96,34 @@ public class CrateBlock extends BlockWithEntity {
   }
 
   @Override
-  public void onPlaced(World world, BlockPos pos, BlockState state, @Nullable LivingEntity placer,
+  public void setPlacedBy(Level world, BlockPos pos, BlockState state, @Nullable LivingEntity placer,
                        ItemStack itemStack) {
-    super.onPlaced(world, pos, state, placer, itemStack);
+    super.setPlacedBy(world, pos, state, placer, itemStack);
     notifyNearbyStations(world, pos);
-    world.emitGameEvent(placer, GameEvent.BLOCK_PLACE, pos);
+    world.gameEvent(placer, GameEvent.BLOCK_PLACE, pos);
   }
 
 
   @Override
-  public float getBlastResistance() {
+  public float getExplosionResistance() {
     if (BasicStorageConfig.getInstance().breakWithAxeOnly() || !BasicStorageConfig.getInstance().canBreakIfFull()) {
       return 3600000.0f;
     }
-    return super.getBlastResistance();
+    return super.getExplosionResistance();
   }
 
   @Override
-  protected float calcBlockBreakingDelta(BlockState state, PlayerEntity player, BlockView world, BlockPos pos) {
-    if (!player.canModifyBlocks()) return 0.0f;
+  protected float getDestroyProgress(BlockState state, Player player, BlockGetter world, BlockPos pos) {
+    if (!player.mayBuild()) return 0.0f;
     if (!BasicStorageConfig.getInstance().canBreakIfFull()) {
       BlockEntity be = world.getBlockEntity(pos);
       if (be instanceof CrateBlockEntity cbe && !cbe.storage.isBlank()) return 0.0f;
     }
     if (BasicStorageConfig.getInstance().breakWithAxeOnly()) {
-      boolean usingAxe = player.getMainHandStack().isIn(ItemTags.AXES);
+      boolean usingAxe = player.getMainHandItem().is(ItemTags.AXES);
       if (!usingAxe) return 0.0f;
     }
-    return super.calcBlockBreakingDelta(state, player, world, pos);
+    return super.getDestroyProgress(state, player, world, pos);
   }
 
   /**
@@ -130,32 +135,32 @@ public class CrateBlock extends BlockWithEntity {
      * Method is fired on every block right click, so immediate check for crate
      * block class is needed
      */
-    UseBlockCallback.EVENT.register((PlayerEntity player, World world, Hand hand, BlockHitResult hit) -> {
-      if (!world.getBlockState(hit.getBlockPos()).isOf(BlockRegistry.CRATE_BLOCK))
-        return ActionResult.PASS;
-      if (!player.canModifyBlocks() || player.isSpectator())
-        return ActionResult.PASS;
+    UseBlockCallback.EVENT.register((Player player, Level world, InteractionHand hand, BlockHitResult hit) -> {
+      if (!world.getBlockState(hit.getBlockPos()).is(BlockRegistry.CRATE_BLOCK))
+        return InteractionResult.PASS;
+      if (!player.mayBuild() || player.isSpectator())
+        return InteractionResult.PASS;
 
       BlockPos pos = hit.getBlockPos();
       BlockState state = world.getBlockState(pos);
 
       /* Todo: remove block after migration period */
-      if (!world.isClient()) {
+      if (!world.isClientSide()) {
         fixLegacyState(state, world, pos);
         // Refresh the state variable to ensure method uses corrected data
         state = world.getBlockState(pos);
       }
 
       BlockEntity be = world.getBlockEntity(pos);
-      Direction facing = state.get(Properties.ORIENTATION).getFacing();
+      Direction facing = state.getValue(BlockStateProperties.ORIENTATION).front();
 
       if (be == null)
-        return ActionResult.PASS;
-      if (facing != hit.getSide())
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
+      if (facing != hit.getDirection())
+        return InteractionResult.PASS;
 
       CrateBlockEntity cbe = (CrateBlockEntity) be;
-      ItemStack playerStack = player.getMainHandStack();
+      ItemStack playerStack = player.getMainHandItem();
       CrateSlot slot = cbe.storage;
 
       // Todo: Enable for debugging
@@ -163,11 +168,11 @@ public class CrateBlock extends BlockWithEntity {
 
       try (var t = Transaction.openOuter()) {
         int inserted = 0;
-        if (player.isSneaking()) {
+        if (player.isShiftKeyDown()) {
           if (!canInsert(playerStack, slot, true))
             return listExactContents(player, slot);
           inserted = insertMaximum(player, playerStack, slot, t);
-        } else if (!player.isSneaking()) {
+        } else if (!player.isShiftKeyDown()) {
           if (!canInsert(playerStack, slot, false))
             return listExactContents(player, slot);
           inserted = insertOne(playerStack, slot, t);
@@ -175,20 +180,20 @@ public class CrateBlock extends BlockWithEntity {
 
         if (inserted == 0) {
           t.abort();
-          return ActionResult.CONSUME;
+          return InteractionResult.CONSUME;
         }
 
         t.commit();
         if (inserted == 1)
-          world.playSound(null, pos, SoundRegistry.INSERT_ONE, SoundCategory.BLOCKS, 1f, 1f + ((-0.5f + random.nextFloat() * (1 + 0.5f)) / 10));
+          world.playSound(null, pos, SoundRegistry.INSERT_ONE, SoundSource.BLOCKS, 1f, 1f + ((-0.5f + random.nextFloat() * (1 + 0.5f)) / 10));
         if (inserted > 1)
-          world.playSound(null, pos, SoundRegistry.INSERT_MANY, SoundCategory.BLOCKS, 1f, 1f);
-        state.updateNeighbors(world, pos, 1);
+          world.playSound(null, pos, SoundRegistry.INSERT_MANY, SoundSource.BLOCKS, 1f, 1f);
+        state.updateNeighbourShapes(world, pos, 1);
         cbe.refresh();
-        world.updateComparators(pos, state.getBlock());
-        player.incrementStat(Stats.USED.getOrCreateStat(playerStack.getItem()));
-        world.emitGameEvent(player, GameEvent.BLOCK_CHANGE, pos);
-        return ActionResult.SUCCESS;
+        world.updateNeighbourForOutputSignal(pos, state.getBlock());
+        player.awardStat(Stats.ITEM_USED.get(playerStack.getItem()));
+        world.gameEvent(player, GameEvent.BLOCK_CHANGE, pos);
+        return InteractionResult.SUCCESS;
       }
     });
   }
@@ -201,14 +206,14 @@ public class CrateBlock extends BlockWithEntity {
     if (playerStack.isEmpty())
       return 0;
     int inserted = (int) slot.insert(ItemVariant.of(playerStack), 1, t);
-    playerStack.decrement(inserted);
+    playerStack.shrink(inserted);
     return inserted;
   }
 
   /**
    * UseBlockCallback helper method
    **/
-  private static int insertMaximum(PlayerEntity player, ItemStack playerStack, CrateSlot slot,
+  private static int insertMaximum(Player player, ItemStack playerStack, CrateSlot slot,
                                    Transaction transaction) {
     /*
      * Insert as many items as possible from player's inventory if slot is empty, or
@@ -219,7 +224,7 @@ public class CrateBlock extends BlockWithEntity {
     } else if (slot.isBlank() && !playerStack.isEmpty()) {
       /* Insert into empty crate */
       int i = (int) slot.insert(ItemVariant.of(playerStack), playerStack.getCount(), transaction);
-      playerStack.decrement(i);
+      playerStack.shrink(i);
       return i;
     } else {
       /* Insert into crate with items */
@@ -231,17 +236,17 @@ public class CrateBlock extends BlockWithEntity {
   /**
    * UseBlockCallback helper method
    **/
-  private static ActionResult listExactContents(PlayerEntity player, CrateSlot slot) {
+  private static InteractionResult listExactContents(Player player, CrateSlot slot) {
     /* Show exact contents of crate to play via message */
-    Text message;
+    Component message;
     if (slot.isBlank()) {
-      message = Text.translatable("message.basicstorage.crate.empty").withColor(0xFFDD99);
+      message = Component.translatable("message.basicstorage.crate.empty").withColor(0xFFDD99);
     } else {
-      message = Text.literal(NumberFormatter.toFormattedNumber(slot.getAmount()) + " "
+      message = Component.literal(NumberFormatter.toFormattedNumber(slot.getAmount()) + " "
           + slot.getResource().getItem().getName().getString()).withColor(0xFFDD99);
     }
-    player.sendMessage(message, true);
-    return ActionResult.CONSUME;
+    player.displayClientMessage(message, true);
+    return InteractionResult.CONSUME;
   }
 
   /**
@@ -260,17 +265,17 @@ public class CrateBlock extends BlockWithEntity {
         return false;
       if (stack.isDamaged())
         return false;
-      if (stack.isOf(BlockRegistry.CRATE_BLOCK.asItem())
-          && stack.contains(DataComponentRegistry.CRATE_CONTENTS))
+      if (stack.is(BlockRegistry.CRATE_BLOCK.asItem())
+          && stack.has(DataComponentRegistry.CRATE_CONTENTS))
         return false;
       if (!ItemVariant.of(stack).equals(slot.getResource()) && !slot.isBlank())
         return false;
-      return slot.isBlank() || stack.isOf(slot.getResource().getItem());
+      return slot.isBlank() || stack.is(slot.getResource().getItem());
     }
   }
 
-  public static void extractFromCrate(World world, BlockPos pos, PlayerEntity player) {
-    if (!player.canModifyBlocks()) return;
+  public static void extractFromCrate(Level world, BlockPos pos, Player player) {
+    if (!player.mayBuild()) return;
     CrateBlockEntity cbe = (CrateBlockEntity) world.getBlockEntity(pos);
     if (cbe == null || cbe.storage.isBlank()) return;
 
@@ -278,81 +283,81 @@ public class CrateBlock extends BlockWithEntity {
     var hit = BlockUtils.getHitResult(player, pos);
     if (hit.getType() == HitResult.Type.MISS) return;
 
-    Direction facing = state.get(Properties.ORIENTATION).getFacing();
-    if (facing != hit.getSide()) return;
+    Direction facing = state.getValue(BlockStateProperties.ORIENTATION).front();
+    if (facing != hit.getDirection()) return;
 
     try (var t = Transaction.openOuter()) {
       var item = cbe.storage.getResource();
-      var extracted = (int) cbe.storage.extract(item, player.isSneaking() ? item.getItem().getMaxCount() : 1, t);
+      var extracted = (int) cbe.storage.extract(item, player.isShiftKeyDown() ? item.getItem().getDefaultMaxStackSize() : 1, t);
       if (extracted == 0) {
         t.abort();
         return;
       }
-      player.getInventory().offerOrDrop(item.toStack(extracted));
+      player.getInventory().placeItemBackInInventory(item.toStack(extracted));
       t.commit();
 
       if (extracted == 1)
-        world.playSound(null, pos, SoundRegistry.EXTRACT_ONE, SoundCategory.BLOCKS, 0.6f,
+        world.playSound(null, pos, SoundRegistry.EXTRACT_ONE, SoundSource.BLOCKS, 0.6f,
             1.2f + ((-1 + random.nextFloat() * (1 + 1)) / 10));
       if (extracted > 1)
-        world.playSound(null, pos, SoundRegistry.EXTRACT_MANY, SoundCategory.BLOCKS, 0.75f, 1f);
-      world.playSound(null, pos, SoundEvents.ENTITY_ITEM_PICKUP, SoundCategory.BLOCKS, 0.35f, 1f);
+        world.playSound(null, pos, SoundRegistry.EXTRACT_MANY, SoundSource.BLOCKS, 0.75f, 1f);
+      world.playSound(null, pos, SoundEvents.ITEM_PICKUP, SoundSource.BLOCKS, 0.35f, 1f);
     }
     cbe.refresh();
-    state.updateNeighbors(world, pos, 1);
-    world.updateComparators(pos, state.getBlock());
-    world.emitGameEvent(player, GameEvent.BLOCK_CHANGE, pos);
+    state.updateNeighbourShapes(world, pos, 1);
+    world.updateNeighbourForOutputSignal(pos, state.getBlock());
+    world.gameEvent(player, GameEvent.BLOCK_CHANGE, pos);
   }
 
   /**
    * Handles breaking in creative mode
    */
   @Override
-  public BlockState onBreak(World world, BlockPos pos, BlockState state, PlayerEntity player) {
+  public BlockState playerWillDestroy(Level world, BlockPos pos, BlockState state, Player player) {
     BlockEntity be = world.getBlockEntity(pos);
     if (!(be == null)) {
       CrateBlockEntity cbe = (CrateBlockEntity) be;
-      if (!world.isClient() && player.isCreative() && !cbe.storage.getResource().toStack().isEmpty()) {
-        getDroppedStacks(state, (ServerWorld) world, pos, cbe, player, player.getStackInHand(Hand.MAIN_HAND))
-            .forEach(stack -> ItemScatterer.spawn(world, pos.getX(), pos.getY(), pos.getZ(), stack));
+      if (!world.isClientSide() && player.isCreative() && !cbe.storage.getResource().toStack().isEmpty()) {
+        getDrops(state, (ServerLevel) world, pos, cbe, player, player.getItemInHand(InteractionHand.MAIN_HAND))
+            .forEach(stack -> Containers.dropItemStack(world, pos.getX(), pos.getY(), pos.getZ(), stack));
       }
     }
-    return super.onBreak(world, pos, state, player);
+    return super.playerWillDestroy(world, pos, state, player);
   }
 
   @Override
-  protected List<ItemStack> getDroppedStacks(BlockState state, LootWorldContext.Builder builder) {
-    return super.getDroppedStacks(state, builder);
+  protected List<ItemStack> getDrops(BlockState state, LootParams.Builder builder) {
+    return super.getDrops(state, builder);
   }
 
   public static Direction getFront(BlockState state) {
-    return state.get(FACING);
+    return state.getValue(FACING);
   }
 
   @Override
-  protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+  protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
     builder.add(ORIENTATION, FACING);
   }
 
   @Override
-  protected boolean canPathfindThrough(BlockState state, NavigationType type) {
+  protected boolean isPathfindable(BlockState state, PathComputationType type) {
     return false;
   }
 
   @Nullable
   @Override
-  public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+  public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
     return new CrateBlockEntity(pos, state);
   }
 
   @Nullable
   @Override
-  public BlockState getPlacementState(ItemPlacementContext ctx) {
-    Direction facing = ctx.getPlayerLookDirection().getOpposite();
+  public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+    Direction facing = ctx.getNearestLookingDirection().getOpposite();
     Direction rotation;
 
     if (facing.getAxis().isVertical()) {
-      rotation = ctx.getHorizontalPlayerFacing();
+      rotation = ctx.getHorizontalDirection();
       if (facing == Direction.DOWN) {
         rotation = rotation.getOpposite();
       }
@@ -363,69 +368,69 @@ public class CrateBlock extends BlockWithEntity {
     /* Todo: remove block after migration period */
     Direction legacyFacing = facing;
     if (facing.getAxis().isVertical()) {
-      legacyFacing = ctx.getHorizontalPlayerFacing().getOpposite();
+      legacyFacing = ctx.getHorizontalDirection().getOpposite();
     }
 
-    return this.getDefaultState()
-        .with(Properties.ORIENTATION, Orientation.byDirections(facing, rotation))
-        .with(Properties.HORIZONTAL_FACING, legacyFacing); //Todo: remove after migration period
+    return this.defaultBlockState()
+        .setValue(BlockStateProperties.ORIENTATION, FrontAndTop.fromFrontAndTop(facing, rotation))
+        .setValue(BlockStateProperties.HORIZONTAL_FACING, legacyFacing); //Todo: remove after migration period
   }
 
   @Override
-  protected void onStateReplaced(BlockState state, ServerWorld world, BlockPos pos, boolean moved) {
+  protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel world, BlockPos pos, boolean moved) {
     BlockEntity blockEntity = world.getBlockEntity(pos);
     if (blockEntity instanceof CrateBlockEntity) {
-      world.updateComparators(pos, state.getBlock());
+      world.updateNeighbourForOutputSignal(pos, state.getBlock());
       notifyNearbyStations(world, pos);
-      world.emitGameEvent(null, GameEvent.BLOCK_DESTROY, pos);
+      world.gameEvent(null, GameEvent.BLOCK_DESTROY, pos);
     }
-    super.onStateReplaced(state, world, pos, moved);
+    super.affectNeighborsAfterRemoval(state, world, pos, moved);
   }
 
   /* Todo: remove this method after migration period */
   @Override
-  protected void neighborUpdate(BlockState state, World world, BlockPos pos, Block sourceBlock, @Nullable WireOrientation wireOrientation, boolean notify) {
-    if (!world.isClient()) {
+  protected void neighborChanged(BlockState state, Level world, BlockPos pos, Block sourceBlock, @Nullable Orientation wireOrientation, boolean notify) {
+    if (!world.isClientSide()) {
       fixLegacyState(state, world, pos);
     }
-    super.neighborUpdate(state, world, pos, sourceBlock, wireOrientation, notify);
+    super.neighborChanged(state, world, pos, sourceBlock, wireOrientation, notify);
   }
 
   /* Todo: remove this method after migration period */
-  private static void fixLegacyState(BlockState state, World world, BlockPos pos) {
-    Orientation currentOrientation = state.get(ORIENTATION);
-    Direction legacyFacing = state.get(FACING);
-    if (currentOrientation != Orientation.NORTH_UP) {
+  private static void fixLegacyState(BlockState state, Level world, BlockPos pos) {
+    FrontAndTop currentOrientation = state.getValue(ORIENTATION);
+    Direction legacyFacing = state.getValue(FACING);
+    if (currentOrientation != FrontAndTop.NORTH_UP) {
       return;
     }
     if (legacyFacing != Direction.NORTH) {
       Constants.LOG.warn("[Crate Migration] Fixing block at x={} y={} z={}. Legacy says '{}', but Orientation was Default.", pos.getX(), pos.getY(), pos.getZ(), legacyFacing);
-      Orientation fixedOrientation = Orientation.byDirections(legacyFacing, Direction.UP);
-      BlockState fixedState = state.with(ORIENTATION, fixedOrientation);
-      world.setBlockState(pos, fixedState, Block.NOTIFY_ALL);
+      FrontAndTop fixedOrientation = FrontAndTop.fromFrontAndTop(legacyFacing, Direction.UP);
+      BlockState fixedState = state.setValue(ORIENTATION, fixedOrientation);
+      world.setBlock(pos, fixedState, Block.UPDATE_ALL);
 
       Constants.LOG.info("[Crate Migration] FIXED x={} y={} z={}: Rotated to '{}'", pos.getX(), pos.getY(), pos.getZ(), fixedOrientation);
     }
   }
 
   @Override
-  protected BlockState rotate(BlockState state, BlockRotation rotation) {
-    Orientation current = state.get(ORIENTATION);
-    Direction newFacing = rotation.rotate(current.getFacing());
-    Direction newRotation = rotation.rotate(current.getRotation());
-    return state.with(ORIENTATION, Orientation.byDirections(newFacing, newRotation));
+  protected BlockState rotate(BlockState state, Rotation rotation) {
+    FrontAndTop current = state.getValue(ORIENTATION);
+    Direction newFacing = rotation.rotate(current.front());
+    Direction newRotation = rotation.rotate(current.top());
+    return state.setValue(ORIENTATION, FrontAndTop.fromFrontAndTop(newFacing, newRotation));
   }
 
   @Override
-  protected BlockState mirror(BlockState state, BlockMirror mirror) {
-    Orientation current = state.get(ORIENTATION);
-    Direction newFacing = mirror.apply(current.getFacing());
-    Direction newRotation = mirror.apply(current.getRotation());
-    return state.with(ORIENTATION, Orientation.byDirections(newFacing, newRotation));
+  protected BlockState mirror(BlockState state, Mirror mirror) {
+    FrontAndTop current = state.getValue(ORIENTATION);
+    Direction newFacing = mirror.mirror(current.front());
+    Direction newRotation = mirror.mirror(current.top());
+    return state.setValue(ORIENTATION, FrontAndTop.fromFrontAndTop(newFacing, newRotation));
   }
 
   @Override
-  public boolean hasComparatorOutput(BlockState state) {
+  public boolean hasAnalogOutputSignal(BlockState state) {
     return true;
   }
 
@@ -434,7 +439,7 @@ public class CrateBlock extends BlockWithEntity {
    * 1-16 items = signal strength, loops to 1 billion
    */
   @Override
-  protected int getComparatorOutput(BlockState state, World world, BlockPos pos, Direction direction) {
+  protected int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos, Direction direction) {
     BlockEntity be = world.getBlockEntity(pos);
     if (be instanceof CrateBlockEntity cbe) {
       return BlockUtils.getComparatorOutputStrength(toIntExact(cbe.storage.getAmount()));
@@ -444,24 +449,24 @@ public class CrateBlock extends BlockWithEntity {
   }
 
   @Override
-  public MapCodec<CrateBlock> getCodec() {
+  public MapCodec<CrateBlock> codec() {
     return CODEC;
   }
 
   /**
    * Debugging Methods, not for survival gameplay use
    */
-  private static ActionResult debugInitOnUseMethod(PlayerEntity player, CrateSlot slot) {
+  private static InteractionResult debugInitOnUseMethod(Player player, CrateSlot slot) {
     try (Transaction t = Transaction.openOuter()) {
       if (slot.isBlank())
-        return ActionResult.PASS;
-      if (player.isSneaking())
+        return InteractionResult.PASS;
+      if (player.isShiftKeyDown())
         slot.extract(slot.getResource(), 10000, t);
-      if (!player.isSneaking())
+      if (!player.isShiftKeyDown())
         slot.insert(slot.getResource(), 100000, t);
       t.commit();
     }
     slot.update();
-    return ActionResult.SUCCESS;
+    return InteractionResult.SUCCESS;
   }
 }

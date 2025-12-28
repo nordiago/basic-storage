@@ -9,23 +9,24 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.component.ComponentMap;
-import net.minecraft.component.ComponentsAccess;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.storage.ReadView;
-import net.minecraft.storage.WriteView;
-import net.minecraft.util.HeldItemContext;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponentGetter;
+import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.ItemOwner;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.Vec3;
 
-public class CrateBlockEntity extends BlockEntity implements HeldItemContext {
+public class CrateBlockEntity extends BlockEntity implements ItemOwner {
+
   public final CrateSlot storage = new CrateSlot(this);
   public static final Codec<CrateSlotComponent> SLOT_CODEC = RecordCodecBuilder.create(instance -> instance.group(
       ItemVariant.CODEC.fieldOf("item").orElse(ItemVariant.blank()).forGetter(CrateSlotComponent::item),
@@ -40,11 +41,11 @@ public class CrateBlockEntity extends BlockEntity implements HeldItemContext {
    * modified markDirty() method
    */
   public void refresh() {
-    if (world instanceof ServerWorld) {
-      world.getWorldChunk(pos).markNeedsSaving();
-      var state = getCachedState();
-      world.updateListeners(pos, state, state, Block.NOTIFY_LISTENERS);
-      world.updateComparators(pos, state.getBlock());
+    if (level instanceof ServerLevel) {
+      level.getChunkAt(worldPosition).markUnsaved();
+      var state = getBlockState();
+      level.sendBlockUpdated(worldPosition, state, state, Block.UPDATE_CLIENTS);
+      level.updateNeighbourForOutputSignal(worldPosition, state.getBlock());
     }
   }
 
@@ -54,15 +55,15 @@ public class CrateBlockEntity extends BlockEntity implements HeldItemContext {
    * allowing Enchantments and other registry-dependent data to be saved correctly.
    */
   @Override
-  protected void writeData(WriteView view) {
-    super.writeData(view);
+  protected void saveAdditional(ValueOutput view) {
+    super.saveAdditional(view);
     CrateSlotComponent component = storage.toComponent();
-    view.put("crateStack", SLOT_CODEC, component);
+    view.store("crateStack", SLOT_CODEC, component);
   }
 
   @Override
-  protected void readData(ReadView view) {
-    super.readData(view);
+  protected void loadAdditional(ValueInput view) {
+    super.loadAdditional(view);
     view.read("crateStack", SLOT_CODEC).ifPresent(storage::readComponent);
   }
 
@@ -70,31 +71,31 @@ public class CrateBlockEntity extends BlockEntity implements HeldItemContext {
    * Block Entity Boilerplate
    */
   @Override
-  public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registries) {
-    return this.createComponentlessNbt(registries);
+  public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+    return this.saveCustomOnly(registries);
   }
 
   @Override
-  public BlockEntityUpdateS2CPacket toUpdatePacket() {
-    return BlockEntityUpdateS2CPacket.create(this);
+  public ClientboundBlockEntityDataPacket getUpdatePacket() {
+    return ClientboundBlockEntityDataPacket.create(this);
   }
 
   /**
    * Data to save and read from ItemStack versions of crate
    */
   @Override
-  protected void addComponents(ComponentMap.Builder componentMapBuilder) {
+  protected void collectImplicitComponents(DataComponentMap.Builder componentMapBuilder) {
     if (this.storage.isBlank())
       return;
     componentMapBuilder
-        .add(DataComponentRegistry.CRATE_CONTENTS,
+        .set(DataComponentRegistry.CRATE_CONTENTS,
             new CrateSlotComponent(
                 this.storage.getResource(),
                 (int) this.storage.getAmount()));
   }
 
   @Override
-  protected void readComponents(ComponentsAccess components) {
+  protected void applyImplicitComponents(DataComponentGetter components) {
     CrateSlotComponent contents = components.getOrDefault(DataComponentRegistry.CRATE_CONTENTS,
         CrateSlotComponent.DEFAULT);
     if (contents == null || contents.count() == 0)
@@ -108,15 +109,15 @@ public class CrateBlockEntity extends BlockEntity implements HeldItemContext {
     this.refresh();
   }
 
-  public World getEntityWorld() {
-    return this.world;
+  public Level level() {
+    return this.level;
   }
 
-  public Vec3d getEntityPos() {
-    return this.getPos().toCenterPos();
+  public Vec3 position() {
+    return this.getBlockPos().getCenter();
   }
 
-  public float getBodyYaw() {
-    return this.getCachedState().get(CrateBlock.FACING).getOpposite().getPositiveHorizontalDegrees();
+  public float getVisualRotationYInDegrees() {
+    return this.getBlockState().getValue(CrateBlock.FACING).getOpposite().toYRot();
   }
 }

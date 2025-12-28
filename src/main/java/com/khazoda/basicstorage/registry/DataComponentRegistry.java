@@ -2,19 +2,20 @@ package com.khazoda.basicstorage.registry;
 
 import com.khazoda.basicstorage.Constants;
 import com.khazoda.basicstorage.structure.CrateSlotComponent;
-import net.minecraft.component.ComponentType;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.Identifier;
 
 public class DataComponentRegistry {
-  public static final ComponentType<CrateSlotComponent> CRATE_CONTENTS = ComponentType.<CrateSlotComponent>builder()
-      .codec(CrateSlotComponent.CODEC)
-      .packetCodec(CrateSlotComponent.PACKET_CODEC)
-      .cache()
+
+  public static final DataComponentType<CrateSlotComponent> CRATE_CONTENTS = DataComponentType.<CrateSlotComponent>builder()
+      .persistent(CrateSlotComponent.CODEC)
+      .networkSynchronized(CrateSlotComponent.PACKET_CODEC)
+      .cacheEncoding()
       .build();
 
   public static void init() {
-    Registry.register(Registries.DATA_COMPONENT_TYPE, Identifier.of(Constants.NAMESPACE, "crate_contents"), CRATE_CONTENTS);
+    Registry.register(BuiltInRegistries.DATA_COMPONENT_TYPE, Identifier.fromNamespaceAndPath(Constants.NAMESPACE, "crate_contents"), CRATE_CONTENTS);
   }
 }

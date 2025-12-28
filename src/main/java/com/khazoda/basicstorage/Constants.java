@@ -1,12 +1,13 @@
 package com.khazoda.basicstorage;
 
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Constants {
+
   public static Identifier ID(String name) {
-    return Identifier.of(NAMESPACE, name);
+    return Identifier.fromNamespaceAndPath(NAMESPACE, name);
   }
 
   public static final String NAMESPACE = "basicstorage";
