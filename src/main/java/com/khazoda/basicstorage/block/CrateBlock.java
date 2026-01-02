@@ -91,8 +91,30 @@ public class CrateBlock extends BaseEntityBlock {
     super.setPlacedBy(world, pos, state, placer, itemStack);
     notifyNearbyStations(world, pos);
     world.gameEvent(placer, GameEvent.BLOCK_PLACE, pos);
+    if (!world.isClientSide()) {
+      tryConsolidateBelow(world, pos);
+    }
   }
 
+  private void tryConsolidateBelow(Level world, BlockPos pos) {
+    BlockEntity topBe = world.getBlockEntity(pos);
+    BlockEntity bottomBe = world.getBlockEntity(pos.below());
+
+    if (topBe instanceof CrateBlockEntity topCrate && bottomBe instanceof CrateBlockEntity bottomCrate) {
+      if (topCrate.storage.isResourceBlank() || bottomCrate.storage.isResourceBlank()) return;
+      if (!topCrate.storage.getResource().equals(bottomCrate.storage.getResource())) return;
+
+      try (Transaction transaction = Transaction.openOuter()) {
+        long moved = StorageUtil.move(topCrate.storage, bottomCrate.storage, variant -> true, Constants.CRATE_MAX_COUNT, transaction);
+        if (moved > 0) {
+          transaction.commit();
+          world.playSound(null, pos, SoundRegistry.INSERT_MANY, SoundSource.BLOCKS, 1f, 1f);
+          topCrate.refresh();
+          bottomCrate.refresh();
+        }
+      }
+    }
+  }
 
   @Override
   public float getExplosionResistance() {
