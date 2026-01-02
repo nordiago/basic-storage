@@ -5,6 +5,7 @@ import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.util.NumberFormatter;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Font.DisplayMode;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -22,6 +23,7 @@ import net.minecraft.core.FrontAndTop;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
@@ -85,6 +87,10 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
 
     crateState.cachedFormattedCount = NumberFormatter.format(crateState.itemCount);
     crateState.cachedOrderedText = textRenderer.split(FormattedText.of(crateState.cachedFormattedCount), 128).getFirst();
+
+    crateState.isRegistered = be.isRegistered();
+    var player = Minecraft.getInstance().player;
+    crateState.holdingDebugger = player != null && (player.getMainHandItem().is(Items.DEBUG_STICK) || player.getOffhandItem().is(Items.DEBUG_STICK));
   }
 
   @Override
@@ -101,6 +107,22 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
     }
     this.renderText(crateState, matrices, queue);
 
+    if (crateState.holdingDebugger && !crateState.isRegistered) {
+      this.renderNotice(matrices, queue, crateState.lightCoords);
+    }
+
+    matrices.popPose();
+  }
+
+  /* Red exclamation mark above crate if it's not registered to a network */
+  private void renderNotice(PoseStack matrices, SubmitNodeCollector queue, int light) {
+    matrices.pushPose();
+    matrices.mulPose(Axis.XP.rotationDegrees(180));
+    matrices.translate(0.1f, -0.1f, -0.05f);
+    matrices.mulPose(Axis.ZP.rotationDegrees(25));
+    matrices.scale(0.05f, 0.05f, 0.05f);
+    String text = "!";
+    queue.submitText(matrices, -textRenderer.width(text) / 2f, -10, textRenderer.split(FormattedText.of(text), 128).getFirst(), false, DisplayMode.POLYGON_OFFSET, light, 0xFFFF1111, 0, 0);
     matrices.popPose();
   }
 

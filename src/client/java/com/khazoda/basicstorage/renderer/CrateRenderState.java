@@ -13,6 +13,8 @@ public class CrateRenderState extends BlockEntityRenderState {
   public String cachedFormattedCount;
   public int lightCoords = 0;
   public FrontAndTop orientation;
+  public boolean isRegistered = false;
+  public boolean holdingDebugger = false;
 
   public CrateRenderState() {
   }

@@ -52,11 +52,6 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> imp
         item = resource;
         this.markedDirty = true;
       }
-      if (wasBlank) {
-        transaction.addOuterCloseCallback((result) -> {
-          this.update();
-        });
-      }
     } else if (inserted < 0) {
       return 0;
     }
@@ -71,11 +66,6 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> imp
     if (extracted > 0) {
       updateSnapshots(transaction);
       count -= extracted;
-      if (amountBefore == extracted) {
-        transaction.addOuterCloseCallback((result) -> {
-          this.update();
-        });
-      }
     } else if (extracted < 0) {
       return 0;
     }

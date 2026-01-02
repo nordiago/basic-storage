@@ -36,7 +36,6 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -174,9 +173,6 @@ public class CrateBlock extends BaseEntityBlock {
       ItemStack playerStack = player.getMainHandItem();
       CrateSlot slot = cbe.storage;
 
-      // Todo: Enable for debugging
-      // if (playerStack.isOf(net.minecraft.item.Items.DEBUG_STICK)) return debugInitOnUseMethod(player, slot);
-
       try (var t = Transaction.openOuter()) {
         int inserted = 0;
         if (player.isShiftKeyDown()) {
@@ -197,7 +193,6 @@ public class CrateBlock extends BaseEntityBlock {
           world.playSound(null, pos, SoundRegistry.INSERT_ONE, SoundSource.BLOCKS, 1f, 1f + ((-0.5f + random.nextFloat() * (1 + 0.5f)) / 10));
         if (inserted > 1) world.playSound(null, pos, SoundRegistry.INSERT_MANY, SoundSource.BLOCKS, 1f, 1f);
         state.updateNeighbourShapes(world, pos, 1);
-        cbe.refresh();
         world.updateNeighbourForOutputSignal(pos, state.getBlock());
         player.awardStat(Stats.ITEM_USED.get(playerStack.getItem()));
         world.gameEvent(player, GameEvent.BLOCK_CHANGE, pos);
@@ -451,19 +446,5 @@ public class CrateBlock extends BaseEntityBlock {
   @Override
   public MapCodec<CrateBlock> codec() {
     return CODEC;
-  }
-
-  /**
-   * Debugging Methods, not for survival gameplay use
-   */
-  private static InteractionResult debugInitOnUseMethod(Player player, CrateSlot slot) {
-    try (Transaction t = Transaction.openOuter()) {
-      if (slot.isBlank()) return InteractionResult.PASS;
-      if (player.isShiftKeyDown()) slot.extract(slot.getResource(), 10000, t);
-      if (!player.isShiftKeyDown()) slot.insert(slot.getResource(), 100000, t);
-      t.commit();
-    }
-    slot.update();
-    return InteractionResult.SUCCESS;
   }
 }

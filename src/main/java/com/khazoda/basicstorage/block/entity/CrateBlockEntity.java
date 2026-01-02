@@ -30,6 +30,7 @@ public class CrateBlockEntity extends BlockEntity implements ItemOwner {
 
   public final CrateSlot storage = new CrateSlot(this);
   private boolean hasCheckedRegistration = false;
+  private boolean registeredOnServer = false;
   public static final Codec<CrateSlotComponent> SLOT_CODEC = RecordCodecBuilder.create(instance -> instance.group(ItemVariant.CODEC.fieldOf("item").orElse(ItemVariant.blank()).forGetter(CrateSlotComponent::item), Codec.INT.fieldOf("count").orElse(0).forGetter(CrateSlotComponent::count)).apply(instance, CrateSlotComponent::new));
 
   public CrateBlockEntity(BlockPos pos, BlockState state) {
@@ -51,10 +52,16 @@ public class CrateBlockEntity extends BlockEntity implements ItemOwner {
 
   private void checkRegistration(ServerLevel level) {
     if (hasCheckedRegistration) return;
+
     CrateNetworkManager manager = CrateNetworkManager.get(level);
-    if (!manager.isRegistered(worldPosition)) {
+    this.registeredOnServer = manager.isRegistered(worldPosition);
+
+    if (!this.registeredOnServer) {
       manager.onBlockAdded(level, worldPosition, true, false);
+      manager.updateStorage(level, worldPosition, storage.toComponent());
+      this.registeredOnServer = true;
     }
+
     hasCheckedRegistration = true;
   }
 
@@ -69,20 +76,24 @@ public class CrateBlockEntity extends BlockEntity implements ItemOwner {
     super.saveAdditional(view);
     CrateSlotComponent component = storage.toComponent();
     view.store("crateStack", SLOT_CODEC, component);
+    view.store("registered", Codec.BOOL, this.registeredOnServer);
   }
 
   @Override
   protected void loadAdditional(ValueInput view) {
     super.loadAdditional(view);
     view.read("crateStack", SLOT_CODEC).ifPresent(storage::readComponent);
+    view.read("registered", Codec.BOOL).ifPresent(v -> this.registeredOnServer = v);
   }
 
-  /**
-   * Block Entity Boilerplate
-   */
   @Override
   public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-    return this.saveCustomOnly(registries);
+    if (this.level instanceof ServerLevel serverLevel) {
+      checkRegistration(serverLevel);
+    }
+    CompoundTag nbt = this.saveCustomOnly(registries);
+    nbt.putBoolean("registered", this.registeredOnServer);
+    return nbt;
   }
 
   @Override
@@ -108,7 +119,10 @@ public class CrateBlockEntity extends BlockEntity implements ItemOwner {
       this.storage.insert(contents.item(), contents.count(), t);
       t.commit();
     }
-    this.refresh();
+  }
+
+  public boolean isRegistered() {
+    return this.registeredOnServer;
   }
 
   public Level level() {
