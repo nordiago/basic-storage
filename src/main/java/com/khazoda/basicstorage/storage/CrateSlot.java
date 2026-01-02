@@ -1,19 +1,18 @@
 package com.khazoda.basicstorage.storage;
 
-import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.Constants;
+import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.structure.CrateSlotComponent;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.base.ResourceAmount;
 import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleSlotStorage;
-import net.fabricmc.fabric.api.transfer.v1.transaction.base.SnapshotParticipant;
 import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
+import net.fabricmc.fabric.api.transfer.v1.transaction.base.SnapshotParticipant;
 
 import static com.khazoda.basicstorage.block.CrateBlock.canInsert;
 import static com.khazoda.basicstorage.storage.CrateStationHelper.notifyNearbyStations;
 
-public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot>
-    implements SingleSlotStorage<ItemVariant>, CrateStorage {
+public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> implements SingleSlotStorage<ItemVariant>, CrateStorage {
 
   private ItemVariant item = ItemVariant.blank();
   private int count;
@@ -34,23 +33,18 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot>
   public void readComponent(CrateSlotComponent component) {
     item = component.item();
     count = component.count();
-    if (item.isBlank())
-      count = 0;
+    if (item.isBlank()) count = 0;
   }
 
   public CrateSlotComponent toComponent() {
-    return new CrateSlotComponent(
-        item,
-        count);
+    return new CrateSlotComponent(item, count);
   }
 
   @Override
   public long insert(ItemVariant resource, long maxAmount, TransactionContext transaction) {
     boolean wasBlank = isBlank();
-    if (!canInsert(resource.toStack(), this, maxAmount > 1))
-      return 0;
-    if (maxAmount > 1 && !resource.equals(this.getResource()) && !this.isBlank())
-      return 0;
+    if (!canInsert(resource.toStack(), this, maxAmount > 1)) return 0;
+    if (maxAmount > 1 && !resource.equals(this.getResource()) && !this.isBlank()) return 0;
     int inserted = (int) Math.min(getCapacity() - count, maxAmount);
     if (inserted > 0) {
       updateSnapshots(transaction);
@@ -75,16 +69,11 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot>
   @Override
   public long extract(ItemVariant resource, long maxAmount, TransactionContext transaction) {
     long amountBefore = count;
-    if (!resource.equals(item))
-      return 0;
+    if (!resource.equals(item)) return 0;
     int extracted = (int) Math.min(count, maxAmount);
     if (extracted > 0) {
       updateSnapshots(transaction);
       count -= extracted;
-      if (count == 0) {
-        item = ItemVariant.blank();
-        this.markedDirty = true;
-      }
       if (amountBefore == extracted) {
         transaction.addOuterCloseCallback((result) -> {
           if (owner.getLevel() != null) {
@@ -96,6 +85,13 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot>
       return 0;
     }
     return extracted;
+  }
+
+  public void unlock() {
+    this.item = ItemVariant.blank();
+    this.count = 0;
+    this.markedDirty = true;
+    this.update();
   }
 
   @Override

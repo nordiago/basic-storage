@@ -12,21 +12,21 @@ public class NumberFormatter {
     return df.format(value);
   }
 
-  private static final NavigableMap<Integer, String> suffixes = new TreeMap<>();
+  private static final NavigableMap<Long, String> suffixes = new TreeMap<>();
 
   static {
-    suffixes.put(1_000, "K");
-    suffixes.put(1_000_000, "M");
-    suffixes.put(1_000_000_000, "B");
+    suffixes.put(1_000L, "K");
+    suffixes.put(1_000_000L, "M");
+    suffixes.put(1_000_000_000L, "B");
   }
 
-  public static String format(int value) {
-    if (value == Integer.MIN_VALUE) return format(Integer.MIN_VALUE + 1);
+  public static String format(long value) {
+    if (value == Long.MIN_VALUE) return format(Long.MIN_VALUE + 1);
     if (value < 0) return "-" + format(-value);
     if (value < 100000) return toFormattedNumber(value);
 
-    Map.Entry<Integer, String> e = suffixes.floorEntry(value);
-    Integer divideBy = e.getKey();
+    Map.Entry<Long, String> e = suffixes.floorEntry(value);
+    Long divideBy = e.getKey();
     String suffix = e.getValue();
 
     long truncated = value / (divideBy / 10);

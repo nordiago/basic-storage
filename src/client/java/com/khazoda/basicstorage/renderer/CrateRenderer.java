@@ -7,14 +7,14 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Font.DisplayMode;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
 import net.minecraft.client.renderer.item.ItemModelResolver;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
-import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.state.CameraRenderState;
-import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -47,13 +47,7 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
   }
 
   @Override
-  public void extractRenderState(
-      CrateBlockEntity be,
-      CrateRenderState crateState,
-      float progress,
-      Vec3 camera,
-      @Nullable ModelFeatureRenderer.CrumblingOverlay crumbling
-  ) {
+  public void extractRenderState(CrateBlockEntity be, CrateRenderState crateState, float progress, Vec3 camera, @Nullable ModelFeatureRenderer.CrumblingOverlay crumbling) {
     BlockEntityRenderer.super.extractRenderState(be, crateState, progress, camera, crumbling);
 
     BlockState state = be.getBlockState();
@@ -83,9 +77,7 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
     ItemStack itemStack = be.storage.getResource().toStack();
 
     ItemStackRenderState itemState = new ItemStackRenderState();
-    this.itemModelManager.updateForTopItem(
-        itemState, itemStack, ItemDisplayContext.GUI, world, be, 0
-    );
+    this.itemModelManager.updateForTopItem(itemState, itemStack, ItemDisplayContext.GUI, world, be, 0);
     crateState.itemRenderState = itemState;
     crateState.itemCount = be.storage.getAmount();
   }
@@ -94,7 +86,7 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
   public void submit(CrateRenderState crateState, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState camera) {
     ItemStackRenderState itemState = crateState.itemRenderState;
 
-    if (itemState == null || crateState.itemCount == 0 || crateState.orientation == null) {
+    if (itemState == null || crateState.orientation == null) {
       return;
     }
 
@@ -122,8 +114,7 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
   }
 
   public void renderText(CrateRenderState state, PoseStack matrices, SubmitNodeCollector queue) {
-    String itemCount = String.valueOf(state.itemCount);
-    String formattedCount = NumberFormatter.format(Integer.parseInt(itemCount));
+    String formattedCount = NumberFormatter.format(state.itemCount);
     FormattedCharSequence orderedText = textRenderer.split(FormattedText.of(formattedCount), 128).get(0);
 
     matrices.pushPose();
@@ -131,18 +122,9 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
     matrices.translate(0f, 0.21f, -0.01f);
     matrices.scale(0.02f, 0.02f, 0.02f);
 
-    queue.submitText(
-        matrices,
-        -textRenderer.width(formattedCount) / 2f,
-        0,
-        orderedText,
-        false,
-        DisplayMode.POLYGON_OFFSET,
-        state.lightCoords,
-        0xFFFFDD99,
-        0,
-        0
-    );
+    int color = state.itemCount > 0 ? 0xFFFFDD99 : 0x22FFDD99;
+
+    queue.submitText(matrices, -textRenderer.width(formattedCount) / 2f, 0, orderedText, false, DisplayMode.POLYGON_OFFSET, state.lightCoords, color, 0, 0);
     matrices.popPose();
   }
 
