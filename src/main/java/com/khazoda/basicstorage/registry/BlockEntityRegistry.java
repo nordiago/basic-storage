@@ -1,24 +1,23 @@
 package com.khazoda.basicstorage.registry;
 
-import com.khazoda.basicstorage.Constants;
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.block.entity.CrateStationBlockEntity;
+import com.khazoda.basicstorage.Constants;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 
 public class BlockEntityRegistry {
 
-
   public static final BlockEntityType<CrateBlockEntity> CRATE_BLOCK_ENTITY = Registry.register(
-      Registries.BLOCK_ENTITY_TYPE, Identifier.of(Constants.NAMESPACE, "crate_block_entity"),
+      BuiltInRegistries.BLOCK_ENTITY_TYPE, Identifier.fromNamespaceAndPath(Constants.NAMESPACE, "crate_block_entity"),
       FabricBlockEntityTypeBuilder.create(CrateBlockEntity::new,
           BlockRegistry.CRATE_BLOCK).build());
   public static final BlockEntityType<CrateStationBlockEntity> CRATE_STATION_BLOCK_ENTITY = Registry.register(
-      Registries.BLOCK_ENTITY_TYPE, Identifier.of(Constants.NAMESPACE, "crate_station_block_entity"),
+      BuiltInRegistries.BLOCK_ENTITY_TYPE, Identifier.fromNamespaceAndPath(Constants.NAMESPACE, "crate_station_block_entity"),
       FabricBlockEntityTypeBuilder.create(CrateStationBlockEntity::new,
           BlockRegistry.CRATE_STATION_BLOCK).build());
 
