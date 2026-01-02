@@ -242,7 +242,7 @@ public class CrateBlock extends BaseEntityBlock {
     /* Show exact contents of crate to play via message */
     Component message;
     if (slot.isBlank()) {
-      message = Component.translatable("message.basicstorage.crate.empty").withColor(0xFFDD99);
+      message = Component.translatable("message.basicstorage.crate.empty").withColor(0xffefcd);
     } else {
       message = Component.literal(NumberFormatter.toFormattedNumber(slot.getAmount()) + " " + slot.getResource().getItem().getName().getString()).withColor(0xFFDD99);
     }
@@ -378,12 +378,9 @@ public class CrateBlock extends BaseEntityBlock {
 
   @Override
   protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel world, BlockPos pos, boolean moved) {
-    BlockEntity blockEntity = world.getBlockEntity(pos);
-    if (blockEntity instanceof CrateBlockEntity) {
-      world.updateNeighbourForOutputSignal(pos, state.getBlock());
-      notifyNearbyStations(world, pos);
-      world.gameEvent(null, GameEvent.BLOCK_DESTROY, pos);
-    }
+    world.updateNeighbourForOutputSignal(pos, state.getBlock());
+    notifyNearbyStations(world, pos);
+    world.gameEvent(null, GameEvent.BLOCK_DESTROY, pos);
     super.affectNeighborsAfterRemoval(state, world, pos, moved);
   }
 

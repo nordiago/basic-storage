@@ -92,6 +92,9 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> imp
     this.count = 0;
     this.markedDirty = true;
     this.update();
+    if (owner.getLevel() != null) {
+      notifyNearbyStations(owner.getLevel(), owner.getBlockPos());
+    }
   }
 
   @Override

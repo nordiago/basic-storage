@@ -13,21 +13,21 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stats;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.world.level.block.RenderShape;
-import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.NoteBlockInstrument;
 import net.minecraft.world.level.gameevent.GameEvent;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
 import net.minecraft.world.phys.BlockHitResult;
@@ -51,8 +51,7 @@ import java.util.List;
 public class CrateStationBlock extends BaseEntityBlock {
 
   public static final MapCodec<CrateStationBlock> CODEC = CrateStationBlock.simpleCodec(CrateStationBlock::new);
-  public static final Properties defaultSettings = Properties.of().sound(SoundType.WOOD).strength(3.5f)
-      .pushReaction(PushReaction.BLOCK).instrument(NoteBlockInstrument.BASS).mapColor(MapColor.WOOD);
+  public static final Properties defaultSettings = Properties.of().sound(SoundType.WOOD).strength(3.5f).pushReaction(PushReaction.BLOCK).instrument(NoteBlockInstrument.BASS).mapColor(MapColor.WOOD);
 
   public CrateStationBlock(Properties settings) {
     super(settings);
@@ -68,10 +67,8 @@ public class CrateStationBlock extends BaseEntityBlock {
    */
   public static void initOnUseMethod() {
     UseBlockCallback.EVENT.register((Player player, Level world, InteractionHand hand, BlockHitResult hit) -> {
-      if (!world.getBlockState(hit.getBlockPos()).is(BlockRegistry.CRATE_STATION_BLOCK))
-        return InteractionResult.PASS;
-      if (!player.mayBuild() || player.isSpectator())
-        return InteractionResult.PASS;
+      if (!world.getBlockState(hit.getBlockPos()).is(BlockRegistry.CRATE_STATION_BLOCK)) return InteractionResult.PASS;
+      if (!player.mayBuild() || player.isSpectator()) return InteractionResult.PASS;
       if (player.getItemInHand(hand).is(BlockRegistry.CRATE_BLOCK.asItem()) && player.isShiftKeyDown()) {
         return InteractionResult.PASS;
       }
@@ -80,12 +77,12 @@ public class CrateStationBlock extends BaseEntityBlock {
       BlockState state = world.getBlockState(pos);
       BlockEntity be = world.getBlockEntity(pos);
 
-      if (be == null)
-        return InteractionResult.PASS;
+      if (be == null) return InteractionResult.PASS;
 
       CrateStationBlockEntity cdbe = (CrateStationBlockEntity) be;
       ItemStack playerStack = player.getMainHandItem();
-      int connectedCrateCount = cdbe.getConnectedCrates().size();
+      int connectedValidCrateCount = cdbe.getConnectedValidCrates().size();
+      int connectedEmptyCrateCount = cdbe.getConnectedEmptyCrates().size();
       int inserted = 0;
 
       if (player.isShiftKeyDown()) {
@@ -93,10 +90,7 @@ public class CrateStationBlock extends BaseEntityBlock {
       } else if (!player.isShiftKeyDown()) {
         if (playerStack.isEmpty()) {
           if (!world.isClientSide())
-            player.displayClientMessage(
-                Component.translatable("message.basicstorage.station.connected_crate_count", connectedCrateCount)
-                    .withColor(0xDDFF99),
-                true);
+            player.displayClientMessage(Component.translatable("message.basicstorage.station.connected_valid_crate_count", connectedValidCrateCount).withColor(0xddff99).append(Component.literal(" | ").withColor(0xffffff)).append(Component.translatable("message.basicstorage.station.connected_empty_crate_count", connectedEmptyCrateCount).withColor(0xffefcd)), true);
           return InteractionResult.PASS;
         }
         inserted = depositStack(player.getItemInHand(hand), cdbe);
@@ -104,8 +98,7 @@ public class CrateStationBlock extends BaseEntityBlock {
 
       if (!world.isClientSide()) {
         if (inserted <= 0) {
-          player.displayClientMessage(Component.translatable("message.basicstorage.station.no_matching_crates").withColor(0xFF9999),
-              true);
+          player.displayClientMessage(Component.translatable("message.basicstorage.station.no_matching_crates").withColor(0xFF9999), true);
           world.playSound(null, pos, SoundRegistry.NO_MATCH, SoundSource.BLOCKS, 1.1f, 1f);
           return InteractionResult.CONSUME;
         }
@@ -129,74 +122,50 @@ public class CrateStationBlock extends BaseEntityBlock {
   }
 
   private static int depositStack(ItemStack stack, CrateStationBlockEntity cdbe) {
-    int inserted = 0;
-    if (stack.isEmpty())
-      return 0;
-
+    if (stack.isEmpty()) return 0;
+    int totalInserted = 0;
     ItemVariant variant = ItemVariant.of(stack);
+    Level world = cdbe.getLevel();
+    if (world == null) return 0;
+
     List<BlockPos> compatibleCrates = cdbe.getCrateRegistry().get(variant);
-    if (compatibleCrates == null)
-      return 0;
-    Level world = cdbe.getLevel();
-
-    for (BlockPos cratePos : new ArrayList<>(compatibleCrates)) {
-      if (world == null)
-        return 0; // todo: if something goes wrong, remove this and see if things work lol
-      BlockEntity be = world.getBlockEntity(cratePos);
-      if (!(be instanceof CrateBlockEntity crate)) {
-        // compatibleCrates.remove(cratePos); //TODO: Maybe Remove?
-        continue;
-      }
-
-      try (Transaction transaction = Transaction.openOuter()) {
-        inserted = (int) crate.storage.insert(variant, stack.getCount(), transaction);
-        if (inserted > 0) {
-          stack.shrink(inserted);
-          transaction.commit();
-          return inserted;
-        }
-      }
-    }
-    return inserted;
-  }
-
-  private static int depositInventory(Player player, CrateStationBlockEntity cdbe) {
-    int inserted = 0;
-    Level world = cdbe.getLevel();
-
-    for (int i = 0; i < player.getInventory().getNonEquipmentItems().size(); i++) {
-      ItemStack stack = player.getInventory().getNonEquipmentItems().get(i);
-      if (!stack.isEmpty()) {
-        ItemVariant variant = ItemVariant.of(stack);
-        List<BlockPos> compatibleCrates = cdbe.getCrateRegistry().get(variant);
-
-        if (compatibleCrates != null) {
-          for (BlockPos cratePos : compatibleCrates) {
-            if (world == null)
-              return 0;
-            BlockEntity be = world.getBlockEntity(cratePos);
-            if (!(be instanceof CrateBlockEntity crate))
-              continue;
-
-            try (Transaction transaction = Transaction.openOuter()) {
-              inserted += (int) crate.storage.insert(variant, stack.getCount(), transaction);
-              if (inserted > 0) {
-                stack.shrink(inserted);
-                transaction.commit();
-                break;
-              }
+    if (compatibleCrates != null) {
+      for (BlockPos cratePos : new ArrayList<>(compatibleCrates)) {
+        BlockEntity be = world.getBlockEntity(cratePos);
+        if (be instanceof CrateBlockEntity crate) {
+          try (Transaction transaction = Transaction.openOuter()) {
+            int inserted = (int) crate.storage.insert(variant, stack.getCount(), transaction);
+            if (inserted > 0) {
+              stack.shrink(inserted);
+              transaction.commit();
+              totalInserted += inserted;
+              if (stack.isEmpty()) return totalInserted;
             }
           }
         }
       }
     }
-    return inserted;
+
+    return totalInserted;
+  }
+
+  private static int depositInventory(Player player, CrateStationBlockEntity cdbe) {
+    int insertedCount = 0;
+    Level world = cdbe.getLevel();
+    if (world == null) return 0;
+
+    for (int i = 0; i < player.getInventory().getNonEquipmentItems().size(); i++) {
+      ItemStack stack = player.getInventory().getNonEquipmentItems().get(i);
+      if (!stack.isEmpty()) {
+        insertedCount += depositStack(stack, cdbe);
+      }
+    }
+    return insertedCount;
   }
 
   @Nullable
   @Override
-  public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level world, BlockState state,
-                                                                BlockEntityType<T> type) {
+  public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level world, BlockState state, BlockEntityType<T> type) {
     return createTickerHelper(type, BlockEntityRegistry.CRATE_STATION_BLOCK_ENTITY, CrateStationBlockEntity::tick);
   }
 

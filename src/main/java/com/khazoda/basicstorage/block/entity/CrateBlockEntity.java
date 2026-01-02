@@ -10,17 +10,17 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentGetter;
 import net.minecraft.core.component.DataComponentMap;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ItemOwner;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
@@ -28,10 +28,7 @@ import net.minecraft.world.phys.Vec3;
 public class CrateBlockEntity extends BlockEntity implements ItemOwner {
 
   public final CrateSlot storage = new CrateSlot(this);
-  public static final Codec<CrateSlotComponent> SLOT_CODEC = RecordCodecBuilder.create(instance -> instance.group(
-      ItemVariant.CODEC.fieldOf("item").orElse(ItemVariant.blank()).forGetter(CrateSlotComponent::item),
-      Codec.INT.fieldOf("count").orElse(0).forGetter(CrateSlotComponent::count)
-  ).apply(instance, CrateSlotComponent::new));
+  public static final Codec<CrateSlotComponent> SLOT_CODEC = RecordCodecBuilder.create(instance -> instance.group(ItemVariant.CODEC.fieldOf("item").orElse(ItemVariant.blank()).forGetter(CrateSlotComponent::item), Codec.INT.fieldOf("count").orElse(0).forGetter(CrateSlotComponent::count)).apply(instance, CrateSlotComponent::new));
 
   public CrateBlockEntity(BlockPos pos, BlockState state) {
     super(BlockEntityRegistry.CRATE_BLOCK_ENTITY, pos, state);
@@ -41,18 +38,18 @@ public class CrateBlockEntity extends BlockEntity implements ItemOwner {
    * modified markDirty() method
    */
   public void refresh() {
-    if (level instanceof ServerLevel) {
-      level.getChunkAt(worldPosition).markUnsaved();
-      var state = getBlockState();
-      level.sendBlockUpdated(worldPosition, state, state, Block.UPDATE_CLIENTS);
-      level.updateNeighbourForOutputSignal(worldPosition, state.getBlock());
+    this.setChanged();
+    if (this.level instanceof ServerLevel serverLevel) {
+      BlockState state = this.getBlockState();
+      serverLevel.sendBlockUpdated(this.worldPosition, state, state, Block.UPDATE_CLIENTS);
     }
   }
 
   /**
    * NBT Operations
    * WriteView creates the RegistryOps internally,
-   * allowing Enchantments and other registry-dependent data to be saved correctly.
+   * allowing Enchantments and other registry-dependent data to be saved
+   * correctly.
    */
   @Override
   protected void saveAdditional(ValueOutput view) {
@@ -85,24 +82,16 @@ public class CrateBlockEntity extends BlockEntity implements ItemOwner {
    */
   @Override
   protected void collectImplicitComponents(DataComponentMap.Builder componentMapBuilder) {
-    if (this.storage.isBlank())
-      return;
-    componentMapBuilder
-        .set(DataComponentRegistry.CRATE_CONTENTS,
-            new CrateSlotComponent(
-                this.storage.getResource(),
-                (int) this.storage.getAmount()));
+    if (this.storage.isBlank()) return;
+    componentMapBuilder.set(DataComponentRegistry.CRATE_CONTENTS, new CrateSlotComponent(this.storage.getResource(), (int) this.storage.getAmount()));
   }
 
   @Override
   protected void applyImplicitComponents(DataComponentGetter components) {
-    CrateSlotComponent contents = components.getOrDefault(DataComponentRegistry.CRATE_CONTENTS,
-        CrateSlotComponent.DEFAULT);
-    if (contents == null || contents.count() == 0)
-      return;
+    CrateSlotComponent contents = components.getOrDefault(DataComponentRegistry.CRATE_CONTENTS, CrateSlotComponent.DEFAULT);
+    if (contents == null || contents.count() == 0) return;
     try (Transaction t = Transaction.openOuter()) {
-      if (!this.storage.isBlank())
-        return; // Prevents creative block pick from duping items
+      if (!this.storage.isBlank()) return; // Prevents creative block pick from duping items
       this.storage.insert(contents.item(), contents.count(), t);
       t.commit();
     }

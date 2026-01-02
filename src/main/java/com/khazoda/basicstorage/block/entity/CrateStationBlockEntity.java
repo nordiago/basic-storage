@@ -5,16 +5,17 @@ import com.khazoda.basicstorage.storage.CrateSlot;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.Level;
 
 import java.util.*;
 
 public class CrateStationBlockEntity extends BlockEntity {
 
   private final Map<ItemVariant, List<BlockPos>> crateRegistry = new HashMap<>();
-  private final Set<BlockPos> connectedCrates = new HashSet<>();
+  private final Set<BlockPos> connectedValidCrates = new HashSet<>();
+  private final Set<BlockPos> connectedEmptyCrates = new HashSet<>();
   public static final int MAX_RADIUS = 16;
   private boolean needsCacheUpdate = true;
 
@@ -30,11 +31,11 @@ public class CrateStationBlockEntity extends BlockEntity {
   }
 
   private void buildCrateCache() {
-    if (level == null || level.isClientSide())
-      return;
+    if (level == null || level.isClientSide()) return;
 
     crateRegistry.clear();
-    connectedCrates.clear();
+    connectedValidCrates.clear();
+    connectedEmptyCrates.clear();
 
     Queue<BlockPos> toExplore = new LinkedList<>();
     Set<BlockPos> visited = new HashSet<>();
@@ -42,19 +43,16 @@ public class CrateStationBlockEntity extends BlockEntity {
 
     while (!toExplore.isEmpty()) {
       BlockPos current = toExplore.poll();
-      if (visited.contains(current) || !isWithinRange(current))
-        continue;
+      if (visited.contains(current) || !isWithinRange(current)) continue;
 
       visited.add(current);
       BlockEntity be = level.getBlockEntity(current);
-      if (be instanceof CrateStationBlockEntity)
-        addDirectionsToExplore(toExplore, current);
+      if (be instanceof CrateStationBlockEntity) addDirectionsToExplore(toExplore, current);
       if (be instanceof CrateBlockEntity crate) {
         registerCrate(current, crate.storage);
         addDirectionsToExplore(toExplore, current);
       }
     }
-//    world.getPlayers().getFirst().sendMessage(Text.literal("Updated cache. New crate number: ".concat(String.valueOf(connectedCrates.size())))); Todo: Uncomment to debug crate connections
     setChanged();
   }
 
@@ -65,23 +63,24 @@ public class CrateStationBlockEntity extends BlockEntity {
   }
 
   private void registerCrate(BlockPos cratePos, CrateSlot storage) {
-    if (!storage.isBlank()) {
+    if (storage.isBlank()) {
+      connectedEmptyCrates.add(cratePos);
+    } else {
+      connectedValidCrates.add(cratePos);
       ItemVariant variant = storage.getResource();
       crateRegistry.computeIfAbsent(variant, k -> new ArrayList<>()).add(cratePos);
-      connectedCrates.add(cratePos);
     }
   }
 
   private boolean isWithinRange(BlockPos target) {
-    return Math.abs(target.getX() - worldPosition.getX()) <= MAX_RADIUS &&
-        Math.abs(target.getY() - worldPosition.getY()) <= MAX_RADIUS &&
-        Math.abs(target.getZ() - worldPosition.getZ()) <= MAX_RADIUS;
+    return Math.abs(target.getX() - worldPosition.getX()) <= MAX_RADIUS && Math.abs(target.getY() - worldPosition.getY()) <= MAX_RADIUS && Math.abs(target.getZ() - worldPosition.getZ()) <= MAX_RADIUS;
   }
 
   @Override
   public void setRemoved() {
     crateRegistry.clear();
-    connectedCrates.clear();
+    connectedValidCrates.clear();
+    connectedEmptyCrates.clear();
     super.setRemoved();
   }
 
@@ -90,8 +89,12 @@ public class CrateStationBlockEntity extends BlockEntity {
     setChanged();
   }
 
-  public Set<BlockPos> getConnectedCrates() {
-    return connectedCrates;
+  public Set<BlockPos> getConnectedValidCrates() {
+    return connectedValidCrates;
+  }
+
+  public Set<BlockPos> getConnectedEmptyCrates() {
+    return connectedEmptyCrates;
   }
 
   public Map<ItemVariant, List<BlockPos>> getCrateRegistry() {

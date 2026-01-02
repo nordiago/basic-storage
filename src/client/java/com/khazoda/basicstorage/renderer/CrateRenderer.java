@@ -20,7 +20,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.FrontAndTop;
 import net.minecraft.network.chat.FormattedText;
-import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -71,6 +70,9 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
 
     if (be.storage.isResourceBlank()) {
       crateState.itemRenderState = null;
+      crateState.itemCount = 0;
+      crateState.cachedFormattedCount = null;
+      crateState.cachedOrderedText = null;
       return;
     }
 
@@ -80,20 +82,23 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
     this.itemModelManager.updateForTopItem(itemState, itemStack, ItemDisplayContext.GUI, world, be, 0);
     crateState.itemRenderState = itemState;
     crateState.itemCount = be.storage.getAmount();
+
+    crateState.cachedFormattedCount = NumberFormatter.format(crateState.itemCount);
+    crateState.cachedOrderedText = textRenderer.split(FormattedText.of(crateState.cachedFormattedCount), 128).getFirst();
   }
 
   @Override
   public void submit(CrateRenderState crateState, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState camera) {
     ItemStackRenderState itemState = crateState.itemRenderState;
 
-    if (itemState == null || crateState.orientation == null) {
-      return;
-    }
+    if (crateState.orientation == null) return;
 
     matrices.pushPose();
     alignMatricesToOrientation(matrices, crateState.orientation);
 
-    this.renderItem(crateState, itemState, matrices, queue);
+    if (itemState != null) {
+      this.renderItem(crateState, itemState, matrices, queue);
+    }
     this.renderText(crateState, matrices, queue);
 
     matrices.popPose();
@@ -114,8 +119,7 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
   }
 
   public void renderText(CrateRenderState state, PoseStack matrices, SubmitNodeCollector queue) {
-    String formattedCount = NumberFormatter.format(state.itemCount);
-    FormattedCharSequence orderedText = textRenderer.split(FormattedText.of(formattedCount), 128).get(0);
+    if (state.cachedOrderedText == null || state.cachedFormattedCount == null) return;
 
     matrices.pushPose();
     matrices.mulPose(Axis.XP.rotationDegrees(180));
@@ -124,7 +128,7 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
 
     int color = state.itemCount > 0 ? 0xFFFFDD99 : 0x22FFDD99;
 
-    queue.submitText(matrices, -textRenderer.width(formattedCount) / 2f, 0, orderedText, false, DisplayMode.POLYGON_OFFSET, state.lightCoords, color, 0, 0);
+    queue.submitText(matrices, -textRenderer.width(state.cachedFormattedCount) / 2f, 0, state.cachedOrderedText, false, DisplayMode.POLYGON_OFFSET, state.lightCoords, color, 0, 0);
     matrices.popPose();
   }
 
