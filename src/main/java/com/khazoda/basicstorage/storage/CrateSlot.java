@@ -10,7 +10,6 @@ import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
 import net.fabricmc.fabric.api.transfer.v1.transaction.base.SnapshotParticipant;
 
 import static com.khazoda.basicstorage.block.CrateBlock.canInsert;
-import static com.khazoda.basicstorage.storage.CrateStationHelper.notifyNearbyStations;
 
 public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> implements SingleSlotStorage<ItemVariant>, CrateStorage {
 
@@ -55,9 +54,7 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> imp
       }
       if (wasBlank) {
         transaction.addOuterCloseCallback((result) -> {
-          if (owner.getLevel() != null) {
-            notifyNearbyStations(owner.getLevel(), owner.getBlockPos());
-          }
+          this.update();
         });
       }
     } else if (inserted < 0) {
@@ -76,9 +73,7 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> imp
       count -= extracted;
       if (amountBefore == extracted) {
         transaction.addOuterCloseCallback((result) -> {
-          if (owner.getLevel() != null) {
-            notifyNearbyStations(owner.getLevel(), owner.getBlockPos());
-          }
+          this.update();
         });
       }
     } else if (extracted < 0) {
@@ -92,9 +87,6 @@ public final class CrateSlot extends SnapshotParticipant<CrateSlot.Snapshot> imp
     this.count = 0;
     this.markedDirty = true;
     this.update();
-    if (owner.getLevel() != null) {
-      notifyNearbyStations(owner.getLevel(), owner.getBlockPos());
-    }
   }
 
   @Override

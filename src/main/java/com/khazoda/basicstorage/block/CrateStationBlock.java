@@ -5,16 +5,19 @@ import com.khazoda.basicstorage.block.entity.CrateStationBlockEntity;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
+import com.khazoda.basicstorage.storage.CrateNetworkManager;
 import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stats;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -25,6 +28,7 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.NoteBlockInstrument;
 import net.minecraft.world.level.gameevent.GameEvent;
@@ -50,7 +54,7 @@ import java.util.List;
  */
 public class CrateStationBlock extends BaseEntityBlock {
 
-  public static final MapCodec<CrateStationBlock> CODEC = CrateStationBlock.simpleCodec(CrateStationBlock::new);
+  public static final MapCodec<CrateStationBlock> CODEC = simpleCodec(CrateStationBlock::new);
   public static final Properties defaultSettings = Properties.of().sound(SoundType.WOOD).strength(3.5f).pushReaction(PushReaction.BLOCK).instrument(NoteBlockInstrument.BASS).mapColor(MapColor.WOOD);
 
   public CrateStationBlock(Properties settings) {
@@ -178,6 +182,23 @@ public class CrateStationBlock extends BaseEntityBlock {
   @Override
   public BlockState getStateForPlacement(BlockPlaceContext ctx) {
     return this.defaultBlockState();
+  }
+
+  @Override
+  public void setPlacedBy(Level world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
+    super.setPlacedBy(world, pos, state, placer, itemStack);
+    if (world instanceof ServerLevel serverLevel) {
+      CrateNetworkManager.get(serverLevel).onBlockAdded(world, pos, false, true);
+    }
+    world.gameEvent(placer, GameEvent.BLOCK_PLACE, pos);
+  }
+
+  @Override
+  protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel world, BlockPos pos, boolean moved) {
+    world.updateNeighbourForOutputSignal(pos, state.getBlock());
+    CrateNetworkManager.get(world).onBlockRemoved(world, pos);
+    world.gameEvent(null, GameEvent.BLOCK_DESTROY, pos);
+    super.affectNeighborsAfterRemoval(state, world, pos, moved);
   }
 
   @Override

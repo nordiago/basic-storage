@@ -1,79 +1,71 @@
 package com.khazoda.basicstorage.block.entity;
 
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
-import com.khazoda.basicstorage.storage.CrateSlot;
+import com.khazoda.basicstorage.storage.CrateNetworkManager;
+import com.khazoda.basicstorage.storage.NetworkNode;
+import com.khazoda.basicstorage.structure.CrateSlotComponent;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.*;
 
-public class CrateStationBlockEntity extends BlockEntity {
+public class CrateStationBlockEntity extends BlockEntity implements NetworkNode {
 
   private final Map<ItemVariant, List<BlockPos>> crateRegistry = new HashMap<>();
   private final Set<BlockPos> connectedValidCrates = new HashSet<>();
   private final Set<BlockPos> connectedEmptyCrates = new HashSet<>();
-  public static final int MAX_RADIUS = 16;
   private boolean needsCacheUpdate = true;
+  private boolean hasCheckedRegistration = false;
 
   public CrateStationBlockEntity(BlockPos pos, BlockState state) {
     super(BlockEntityRegistry.CRATE_STATION_BLOCK_ENTITY, pos, state);
   }
 
   public static void tick(Level world, BlockPos pos, BlockState state, CrateStationBlockEntity be) {
+    if (world instanceof ServerLevel serverLevel) {
+      be.checkRegistration(serverLevel);
+    }
     if (be.needsCacheUpdate) {
       be.buildCrateCache();
       be.needsCacheUpdate = false;
     }
   }
 
+  private void checkRegistration(ServerLevel level) {
+    if (hasCheckedRegistration) return;
+    CrateNetworkManager manager = CrateNetworkManager.get(level);
+    if (!manager.isRegistered(worldPosition)) {
+      manager.onBlockAdded(level, worldPosition, false, true);
+    }
+    hasCheckedRegistration = true;
+  }
+
   private void buildCrateCache() {
-    if (level == null || level.isClientSide()) return;
+    if (level == null || level.isClientSide() || !(level instanceof ServerLevel serverLevel)) return;
 
     crateRegistry.clear();
     connectedValidCrates.clear();
     connectedEmptyCrates.clear();
 
-    Queue<BlockPos> toExplore = new LinkedList<>();
-    Set<BlockPos> visited = new HashSet<>();
-    toExplore.add(worldPosition);
+    CrateNetworkManager manager = CrateNetworkManager.get(serverLevel);
+    CrateNetworkManager.CrateNetwork network = manager.getNetworkFor(worldPosition);
+    if (network == null) return;
 
-    while (!toExplore.isEmpty()) {
-      BlockPos current = toExplore.poll();
-      if (visited.contains(current) || !isWithinRange(current)) continue;
-
-      visited.add(current);
-      BlockEntity be = level.getBlockEntity(current);
-      if (be instanceof CrateStationBlockEntity) addDirectionsToExplore(toExplore, current);
-      if (be instanceof CrateBlockEntity crate) {
-        registerCrate(current, crate.storage);
-        addDirectionsToExplore(toExplore, current);
+    for (BlockPos cratePos : network.crates) {
+      CrateSlotComponent contents = manager.getStorage(cratePos);
+      if (contents == null || contents.item().isBlank()) {
+        connectedEmptyCrates.add(cratePos);
+      } else {
+        connectedValidCrates.add(cratePos);
+        ItemVariant variant = contents.item();
+        crateRegistry.computeIfAbsent(variant, k -> new ArrayList<>()).add(cratePos);
       }
     }
     setChanged();
-  }
-
-  private void addDirectionsToExplore(Queue<BlockPos> blockPositionExplorationQueue, BlockPos currentBlockPosition) {
-    for (Direction dir : Direction.values()) {
-      blockPositionExplorationQueue.add(currentBlockPosition.relative(dir));
-    }
-  }
-
-  private void registerCrate(BlockPos cratePos, CrateSlot storage) {
-    if (storage.isBlank()) {
-      connectedEmptyCrates.add(cratePos);
-    } else {
-      connectedValidCrates.add(cratePos);
-      ItemVariant variant = storage.getResource();
-      crateRegistry.computeIfAbsent(variant, k -> new ArrayList<>()).add(cratePos);
-    }
-  }
-
-  private boolean isWithinRange(BlockPos target) {
-    return Math.abs(target.getX() - worldPosition.getX()) <= MAX_RADIUS && Math.abs(target.getY() - worldPosition.getY()) <= MAX_RADIUS && Math.abs(target.getZ() - worldPosition.getZ()) <= MAX_RADIUS;
   }
 
   @Override

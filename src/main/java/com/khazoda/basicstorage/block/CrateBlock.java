@@ -6,6 +6,7 @@ import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.registry.DataComponentRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
+import com.khazoda.basicstorage.storage.CrateNetworkManager;
 import com.khazoda.basicstorage.storage.CrateSlot;
 import com.khazoda.basicstorage.util.BlockUtils;
 import com.khazoda.basicstorage.util.NumberFormatter;
@@ -35,6 +36,7 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -53,7 +55,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.Random;
 
-import static com.khazoda.basicstorage.storage.CrateStationHelper.notifyNearbyStations;
 import static java.lang.Math.toIntExact;
 
 /**
@@ -66,7 +67,7 @@ import static java.lang.Math.toIntExact;
  */
 public class CrateBlock extends BaseEntityBlock {
 
-  public static final MapCodec<CrateBlock> CODEC = CrateBlock.simpleCodec(CrateBlock::new);
+  public static final MapCodec<CrateBlock> CODEC = simpleCodec(CrateBlock::new);
   public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
   public static final EnumProperty<FrontAndTop> ORIENTATION = BlockStateProperties.ORIENTATION;
   public static final Properties defaultSettings = getCrateSettings();
@@ -89,7 +90,9 @@ public class CrateBlock extends BaseEntityBlock {
   @Override
   public void setPlacedBy(Level world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
     super.setPlacedBy(world, pos, state, placer, itemStack);
-    notifyNearbyStations(world, pos);
+    if (world instanceof ServerLevel serverLevel) {
+      CrateNetworkManager.get(serverLevel).onBlockAdded(world, pos, true, false);
+    }
     world.gameEvent(placer, GameEvent.BLOCK_PLACE, pos);
     if (!world.isClientSide()) {
       tryConsolidateBelow(world, pos);
@@ -379,7 +382,7 @@ public class CrateBlock extends BaseEntityBlock {
   @Override
   protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel world, BlockPos pos, boolean moved) {
     world.updateNeighbourForOutputSignal(pos, state.getBlock());
-    notifyNearbyStations(world, pos);
+    CrateNetworkManager.get(world).onBlockRemoved(world, pos);
     world.gameEvent(null, GameEvent.BLOCK_DESTROY, pos);
     super.affectNeighborsAfterRemoval(state, world, pos, moved);
   }

@@ -31,7 +31,7 @@ import org.joml.Quaternionf;
 
 public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, CrateRenderState> {
 
-  private static final Quaternionf ITEM_LIGHT_ROTATION_3D = Axis.XP.rotationDegrees(-15).mul(Axis.YP.rotationDegrees(15));
+  private static final Quaternionf ITEM_LIGHT_ROTATION_3D = new Quaternionf().rotateX((float) Math.toRadians(-15)).rotateY((float) Math.toRadians(15));
   private final ItemModelResolver itemModelManager;
   private final Font textRenderer;
 
@@ -135,42 +135,48 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
   protected void alignMatricesToOrientation(PoseStack matrices, FrontAndTop orientation) {
     matrices.translate(0.5, 0.5, 0.5);
     switch (orientation) {
-      case NORTH_UP -> matrices.mulPose(Axis.YP.rotationDegrees(180));
-      case SOUTH_UP -> {
-      }
-      case EAST_UP -> matrices.mulPose(Axis.YP.rotationDegrees(90));
-      case WEST_UP -> matrices.mulPose(Axis.YP.rotationDegrees(270));
-      case UP_NORTH -> {
+      case NORTH_UP:
+        matrices.mulPose(Axis.YP.rotationDegrees(180));
+        break;
+      case SOUTH_UP:
+        break;
+      case EAST_UP:
+        matrices.mulPose(Axis.YP.rotationDegrees(90));
+        break;
+      case WEST_UP:
+        matrices.mulPose(Axis.YP.rotationDegrees(270));
+        break;
+      case UP_NORTH:
         matrices.mulPose(Axis.YP.rotationDegrees(0));
         matrices.mulPose(Axis.XP.rotationDegrees(270));
-      }
-      case UP_EAST -> {
+        break;
+      case UP_EAST:
         matrices.mulPose(Axis.YP.rotationDegrees(270));
         matrices.mulPose(Axis.XP.rotationDegrees(270));
-      }
-      case UP_SOUTH -> {
+        break;
+      case UP_SOUTH:
         matrices.mulPose(Axis.YP.rotationDegrees(180));
         matrices.mulPose(Axis.XP.rotationDegrees(270));
-      }
-      case UP_WEST -> {
+        break;
+      case UP_WEST:
         matrices.mulPose(Axis.YP.rotationDegrees(90));
         matrices.mulPose(Axis.XP.rotationDegrees(270));
-      }
-      case DOWN_NORTH -> {
+        break;
+      case DOWN_NORTH:
         matrices.mulPose(Axis.YP.rotationDegrees(180));
         matrices.mulPose(Axis.XP.rotationDegrees(90));
-      }
-      case DOWN_EAST -> {
+        break;
+      case DOWN_EAST:
         matrices.mulPose(Axis.YP.rotationDegrees(90));
         matrices.mulPose(Axis.XP.rotationDegrees(90));
-      }
-      case DOWN_SOUTH -> {
+        break;
+      case DOWN_SOUTH:
         matrices.mulPose(Axis.XP.rotationDegrees(90));
-      }
-      case DOWN_WEST -> {
+        break;
+      case DOWN_WEST:
         matrices.mulPose(Axis.YP.rotationDegrees(270));
         matrices.mulPose(Axis.XP.rotationDegrees(90));
-      }
+        break;
     }
     matrices.translate(0, 0, 0.51);
   }

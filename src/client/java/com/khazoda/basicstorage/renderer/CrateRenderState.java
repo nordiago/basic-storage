@@ -11,6 +11,7 @@ public class CrateRenderState extends BlockEntityRenderState {
   public long itemCount = 0;
   public FormattedCharSequence cachedOrderedText;
   public String cachedFormattedCount;
+  public int lightCoords = 0;
   public FrontAndTop orientation;
 
   public CrateRenderState() {

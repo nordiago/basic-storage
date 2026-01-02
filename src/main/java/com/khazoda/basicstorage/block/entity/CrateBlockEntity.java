@@ -3,6 +3,7 @@ package com.khazoda.basicstorage.block.entity;
 import com.khazoda.basicstorage.block.CrateBlock;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.registry.DataComponentRegistry;
+import com.khazoda.basicstorage.storage.CrateNetworkManager;
 import com.khazoda.basicstorage.storage.CrateSlot;
 import com.khazoda.basicstorage.structure.CrateSlotComponent;
 import com.mojang.serialization.Codec;
@@ -28,6 +29,7 @@ import net.minecraft.world.phys.Vec3;
 public class CrateBlockEntity extends BlockEntity implements ItemOwner {
 
   public final CrateSlot storage = new CrateSlot(this);
+  private boolean hasCheckedRegistration = false;
   public static final Codec<CrateSlotComponent> SLOT_CODEC = RecordCodecBuilder.create(instance -> instance.group(ItemVariant.CODEC.fieldOf("item").orElse(ItemVariant.blank()).forGetter(CrateSlotComponent::item), Codec.INT.fieldOf("count").orElse(0).forGetter(CrateSlotComponent::count)).apply(instance, CrateSlotComponent::new));
 
   public CrateBlockEntity(BlockPos pos, BlockState state) {
@@ -40,9 +42,20 @@ public class CrateBlockEntity extends BlockEntity implements ItemOwner {
   public void refresh() {
     this.setChanged();
     if (this.level instanceof ServerLevel serverLevel) {
+      checkRegistration(serverLevel);
+      CrateNetworkManager.get(serverLevel).updateStorage(serverLevel, worldPosition, storage.toComponent());
       BlockState state = this.getBlockState();
       serverLevel.sendBlockUpdated(this.worldPosition, state, state, Block.UPDATE_CLIENTS);
     }
+  }
+
+  private void checkRegistration(ServerLevel level) {
+    if (hasCheckedRegistration) return;
+    CrateNetworkManager manager = CrateNetworkManager.get(level);
+    if (!manager.isRegistered(worldPosition)) {
+      manager.onBlockAdded(level, worldPosition, true, false);
+    }
+    hasCheckedRegistration = true;
   }
 
   /**

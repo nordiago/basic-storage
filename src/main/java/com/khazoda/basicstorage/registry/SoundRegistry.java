@@ -1,8 +1,8 @@
 package com.khazoda.basicstorage.registry;
 
 import com.khazoda.basicstorage.Constants;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 
@@ -19,6 +19,7 @@ public class SoundRegistry {
   }
 
   private static SoundEvent register(String name) {
-    return Registry.register(BuiltInRegistries.SOUND_EVENT, name, SoundEvent.createVariableRangeEvent(Identifier.fromNamespaceAndPath(Constants.NAMESPACE, name)));
+    Identifier id = Constants.ID(name);
+    return Registry.register(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.createVariableRangeEvent(id));
   }
 }
