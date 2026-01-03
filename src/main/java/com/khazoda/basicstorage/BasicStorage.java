@@ -1,6 +1,7 @@
 package com.khazoda.basicstorage;
 
 import com.khazoda.basicstorage.config.ConfigSyncPayload;
+import com.khazoda.basicstorage.packet.StationBeamPayload;
 import com.khazoda.basicstorage.registry.*;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.item.v1.ComponentTooltipAppenderRegistry;
@@ -22,6 +23,7 @@ public class BasicStorage implements ModInitializer {
   @Override
   public void onInitialize() {
     PayloadTypeRegistry.playS2C().register(ConfigSyncPayload.ID, ConfigSyncPayload.CODEC);
+    PayloadTypeRegistry.playS2C().register(StationBeamPayload.ID, StationBeamPayload.CODEC);
     ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
       boolean serverBreakWithAxeOnly = BasicStorageConfig.getInstance().breakWithAxeOnly();
       boolean serverCanBreakIfFull = BasicStorageConfig.getInstance().canBreakIfFull();

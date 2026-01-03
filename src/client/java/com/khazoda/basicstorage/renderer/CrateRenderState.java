@@ -15,6 +15,7 @@ public class CrateRenderState extends BlockEntityRenderState {
   public FrontAndTop orientation;
   public boolean isRegistered = false;
   public boolean holdingDebugger = false;
+  public int highlightTicks = 0;
 
   public CrateRenderState() {
   }

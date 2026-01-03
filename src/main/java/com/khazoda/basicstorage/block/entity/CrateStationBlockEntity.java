@@ -1,10 +1,13 @@
 package com.khazoda.basicstorage.block.entity;
 
+import com.khazoda.basicstorage.packet.StationBeamPayload;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.storage.CrateNetworkManager;
 import com.khazoda.basicstorage.storage.NetworkNode;
 import com.khazoda.basicstorage.structure.CrateSlotComponent;
 import com.mojang.serialization.Codec;
+import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.core.BlockPos;
@@ -14,6 +17,7 @@ import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.Containers;
@@ -41,7 +45,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
 
   private final NonNullList<ItemStack> stationBuffer = NonNullList.withSize(9, ItemStack.EMPTY);
   private int tickCounter = 0;
-  private static final int DISTRIBUTION_INTERVAL = 100; // 100 ticks, 5 seconds
+  private int currentDistributionInterval = 100;
 
   public CrateStationBlockEntity(BlockPos pos, BlockState state) {
     super(BlockEntityRegistry.CRATE_STATION_BLOCK_ENTITY, pos, state);
@@ -60,8 +64,13 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
 
   private void tickDistribution() {
     tickCounter++;
-    if (tickCounter >= DISTRIBUTION_INTERVAL) {
+    if (tickCounter >= currentDistributionInterval) {
       tickCounter = 0;
+      /*
+       *  Randomize next interval between 3 and 6 seconds (60-120 ticks)
+       *  fallback to 5 seconds to naturally desynchronize station distributions
+       */
+      currentDistributionInterval = 60 + (this.level != null ? this.level.random.nextInt(61) : 100);
       distributeBuffer();
     }
   }
@@ -69,6 +78,8 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
   private void distributeBuffer() {
     if (level == null) return;
     boolean changed = false;
+
+    List<StationBeamPayload.Target> beamTargets = new ArrayList<>();
 
     for (int i = 0; i < stationBuffer.size(); i++) {
       ItemStack stack = stationBuffer.get(i);
@@ -94,6 +105,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
                 stack.shrink((int) inserted);
                 transaction.commit();
                 changed = true;
+                beamTargets.add(new StationBeamPayload.Target(cratePos, (int) inserted));
                 if (stack.isEmpty()) break;
               }
             }
@@ -104,6 +116,14 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
         Containers.dropItemStack(level, worldPosition.getX() + 0.5, worldPosition.getY() + 1.0, worldPosition.getZ() + 0.5, stack.copy());
         stationBuffer.set(i, ItemStack.EMPTY);
         changed = true;
+      }
+    }
+
+    if (!beamTargets.isEmpty()) {
+      StationBeamPayload payload = new StationBeamPayload(worldPosition, beamTargets);
+      /* TickDistribution() runs serverside only so this cast is safe */
+      for (ServerPlayer player : PlayerLookup.tracking(this)) {
+        ServerPlayNetworking.send(player, payload);
       }
     }
 

@@ -2,17 +2,21 @@ package com.khazoda.basicstorage.block;
 
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.block.entity.CrateStationBlockEntity;
+import com.khazoda.basicstorage.packet.StationBeamPayload;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
 import com.khazoda.basicstorage.storage.CrateNetworkManager;
 import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stats;
 import net.minecraft.world.InteractionHand;
@@ -87,16 +91,17 @@ public class CrateStationBlock extends BaseEntityBlock {
       int connectedValidCrateCount = cdbe.getConnectedValidCrates().size();
       int connectedEmptyCrateCount = cdbe.getConnectedEmptyCrates().size();
       int inserted = 0;
+      List<StationBeamPayload.Target> beamTargets = new ArrayList<>();
 
       if (player.isShiftKeyDown()) {
-        inserted = depositInventory(player, cdbe);
+        inserted = depositInventory(player, cdbe, beamTargets);
       } else if (!player.isShiftKeyDown()) {
         if (playerStack.isEmpty()) {
           if (!world.isClientSide())
             player.displayClientMessage(Component.translatable("message.basicstorage.station.connected_valid_crate_count", connectedValidCrateCount).withColor(0xddff99).append(Component.literal(" | ").withColor(0xffffff)).append(Component.translatable("message.basicstorage.station.connected_empty_crate_count", connectedEmptyCrateCount).withColor(0xffefcd)), true);
           return InteractionResult.PASS;
         }
-        inserted = depositStack(player.getItemInHand(hand), cdbe);
+        inserted = depositStack(player.getItemInHand(hand), cdbe, beamTargets);
       }
 
       if (!world.isClientSide()) {
@@ -114,6 +119,13 @@ public class CrateStationBlock extends BaseEntityBlock {
           world.playSound(null, pos, SoundRegistry.INSERT_LOADS, SoundSource.BLOCKS, 1f, 1.05f);
         }
 
+        if (!beamTargets.isEmpty()) {
+          StationBeamPayload payload = new StationBeamPayload(pos, beamTargets);
+          for (ServerPlayer p : PlayerLookup.tracking(cdbe)) {
+            ServerPlayNetworking.send(p, payload);
+          }
+        }
+
         state.updateNeighbourShapes(world, pos, 1);
         cdbe.setChanged();
         player.awardStat(Stats.ITEM_USED.get(playerStack.getItem()));
@@ -124,7 +136,7 @@ public class CrateStationBlock extends BaseEntityBlock {
     });
   }
 
-  private static int depositStack(ItemStack stack, CrateStationBlockEntity cdbe) {
+  private static int depositStack(ItemStack stack, CrateStationBlockEntity cdbe, List<StationBeamPayload.Target> beamTargets) {
     if (stack.isEmpty()) return 0;
     int totalInserted = 0;
     ItemVariant variant = ItemVariant.of(stack);
@@ -142,6 +154,7 @@ public class CrateStationBlock extends BaseEntityBlock {
               stack.shrink(inserted);
               transaction.commit();
               totalInserted += inserted;
+              beamTargets.add(new StationBeamPayload.Target(cratePos, inserted));
               if (stack.isEmpty()) return totalInserted;
             }
           }
@@ -152,7 +165,7 @@ public class CrateStationBlock extends BaseEntityBlock {
     return totalInserted;
   }
 
-  private static int depositInventory(Player player, CrateStationBlockEntity cdbe) {
+  private static int depositInventory(Player player, CrateStationBlockEntity cdbe, List<StationBeamPayload.Target> beamTargets) {
     int insertedCount = 0;
     Level world = cdbe.getLevel();
     if (world == null) return 0;
@@ -160,7 +173,7 @@ public class CrateStationBlock extends BaseEntityBlock {
     for (int i = 0; i < player.getInventory().getNonEquipmentItems().size(); i++) {
       ItemStack stack = player.getInventory().getNonEquipmentItems().get(i);
       if (!stack.isEmpty()) {
-        insertedCount += depositStack(stack, cdbe);
+        insertedCount += depositStack(stack, cdbe, beamTargets);
       }
     }
     return insertedCount;

@@ -5,7 +5,6 @@ import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.util.NumberFormatter;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Font.DisplayMode;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -23,7 +22,6 @@ import net.minecraft.core.FrontAndTop;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
@@ -83,14 +81,36 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
     ItemStackRenderState itemState = new ItemStackRenderState();
     this.itemModelManager.updateForTopItem(itemState, itemStack, ItemDisplayContext.GUI, world, be, 0);
     crateState.itemRenderState = itemState;
-    crateState.itemCount = be.storage.getAmount();
+
+    Float rolling = ParticleBeamRendering.rollingItemCounts.get(pos);
+    Integer known = ParticleBeamRendering.knownItemCounts.get(pos);
+    int actual = Math.toIntExact(be.storage.getAmount());
+
+    /* Rolling item count activated by station beam */
+    if (rolling != null) {
+      crateState.itemCount = rolling.intValue();
+    } else {
+      if (known != null && known != actual) {
+        /* Rolling item count activated via player insertion */
+        ParticleBeamRendering.rollingItemCounts.put(pos, (float) known);
+        crateState.itemCount = known;
+      } else {
+        crateState.itemCount = actual;
+      }
+    }
+
+    ParticleBeamRendering.knownItemCounts.put(pos, actual);
 
     crateState.cachedFormattedCount = NumberFormatter.format(crateState.itemCount);
     crateState.cachedOrderedText = textRenderer.split(FormattedText.of(crateState.cachedFormattedCount), 128).getFirst();
 
     crateState.isRegistered = be.isRegistered();
-    var player = Minecraft.getInstance().player;
-    crateState.holdingDebugger = player != null && (player.getMainHandItem().is(Items.DEBUG_STICK) || player.getOffhandItem().is(Items.DEBUG_STICK));
+
+    /* Uncomment 2 lines below to enable DEBUGGING */
+//    var player = Minecraft.getInstance().player;
+//    crateState.holdingDebugger = player != null && (player.getMainHandItem().is(Items.DEBUG_STICK) || player.getOffhandItem().is(Items.DEBUG_STICK));
+
+    crateState.highlightTicks = ParticleBeamRendering.highlightedCrates.getOrDefault(pos, 0);
   }
 
   @Override
@@ -126,8 +146,29 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
     matrices.popPose();
   }
 
-  private void renderItem(CrateRenderState crateState, ItemStackRenderState itemState, PoseStack matrices, SubmitNodeCollector queue) {
+  private void renderItem(CrateRenderState state, ItemStackRenderState itemState, PoseStack matrices, SubmitNodeCollector queue) {
     matrices.pushPose();
+
+    /* Apply synced animation if highlighted */
+    if (state.highlightTicks > 0) {
+      float time = getAnimationDuration(state.highlightTicks);
+      float ease = getEaseFromTime(time);
+
+      float scale = 1.0f + 0.1f * ease;
+      matrices.scale(scale, scale, scale);
+
+      float shakeFreq = state.highlightTicks * 2.5f;
+      float shakeAmp = 0.01f * ease;
+
+      float bufX = (float) Math.sin(shakeFreq) * shakeAmp;
+      float bufY = (float) Math.cos(shakeFreq * 0.8f) * shakeAmp;
+      matrices.translate(bufX, bufY, 0);
+
+      float rotAmp = 2.5f * ease;
+      float rotZ = (float) Math.sin(shakeFreq * 0.5f) * rotAmp;
+      matrices.mulPose(Axis.ZP.rotationDegrees(rotZ));
+    }
+
     matrices.translate(0f, 0.125f, 0f);
     matrices.scale(0.5f, 0.5f, 0.5f);
     matrices.scale(0.75f, 0.75f, 1);
@@ -136,7 +177,7 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
     matrices.last().normal().identity();
     matrices.last().normal().rotate(ITEM_LIGHT_ROTATION_3D);
 
-    itemState.submit(matrices, queue, crateState.lightCoords, OverlayTexture.NO_OVERLAY, 0);
+    itemState.submit(matrices, queue, state.lightCoords, OverlayTexture.NO_OVERLAY, 0);
     matrices.popPose();
   }
 
@@ -148,10 +189,42 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
     matrices.translate(0f, 0.21f, -0.01f);
     matrices.scale(0.02f, 0.02f, 0.02f);
 
-    int color = state.itemCount > 0 ? 0xFFFFDD99 : 0x22FFDD99;
+    int baseColor = state.itemCount > 0 ? 0xFFFFDD99 : 0x22FFDD99;
+    int color = baseColor;
+
+    // Interpolate color if highlighted
+    if (state.highlightTicks > 0) {
+
+      float time = getAnimationDuration(state.highlightTicks);
+      float ease = getEaseFromTime(time);
+
+      int r1 = (0xFFFFFFFF >> 16) & 0xFF;
+      int g1 = (0xFFFFFFFF >> 8) & 0xFF;
+      int b1 = 0xFF;
+
+      int r2 = (baseColor >> 16) & 0xFF;
+      int g2 = (baseColor >> 8) & 0xFF;
+      int b2 = baseColor & 0xFF;
+
+      int r = (int) (r1 * ease + r2 * (1 - ease));
+      int g = (int) (g1 * ease + g2 * (1 - ease));
+      int b = (int) (b1 * ease + b2 * (1 - ease));
+
+      color = (0xFF << 24) | (r << 16) | (g << 8) | b;
+    }
 
     queue.submitText(matrices, -textRenderer.width(state.cachedFormattedCount) / 2f, 0, state.cachedOrderedText, false, DisplayMode.POLYGON_OFFSET, state.lightCoords, color, 0, 0);
     matrices.popPose();
+  }
+
+  /* > Tweak HIGHLIGHT_DURATION_TICKS to make animation longer/shorter */
+  private static float getAnimationDuration(int ticks) {
+    return ticks / (float) ParticleBeamRendering.HIGHLIGHT_DURATION_TICKS;
+  }
+
+  /* > Tweak return value to change animation easing function */
+  private static float getEaseFromTime(float time) {
+    return 1 - (1 - time) * (1 - time);
   }
 
   protected void alignMatricesToOrientation(PoseStack matrices, FrontAndTop orientation) {
