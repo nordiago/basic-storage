@@ -1,10 +1,10 @@
 {
   "type": "minecraft:crafting_shaped",
-  "group": "crates",
+  "group": "crate_connectors",
   "pattern": [
-    "#/#",
-    "/ /",
-    "#/#"
+    "   ",
+    "/# ",
+    "#/ "
   ],
   "key": {
     "#": "#minecraft:planks",
@@ -12,6 +12,6 @@
   },
   "result": {
     "id": "basicstorage:crate",
-    "count": 1
+    "count": 4
   }
 }
