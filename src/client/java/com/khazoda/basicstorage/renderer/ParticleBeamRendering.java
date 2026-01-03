@@ -181,6 +181,11 @@ public class ParticleBeamRendering {
     final int duration;
     final int totalSteps;
     int age;
+    final double frequency;
+    final double amplitude;
+    final double phase;
+    final boolean isSpiral;
+    final Vec3 right, upVec;
 
     public Beam(ClientLevel level, Vec3 start, Vec3 end, int duration, BlockPos targetPos) {
       this.level = level;
@@ -192,11 +197,24 @@ public class ParticleBeamRendering {
 
       Vec3 diff = end.subtract(start);
       double dist = diff.length();
-      this.totalSteps = (int) (dist * 4);
+      this.totalSteps = (int) (dist * 10);
 
-      double arcScale = dist * 0.25;
-      this.p1 = start.add(diff.scale(0.33)).add((Math.random() - 0.5) * arcScale, (Math.random() * arcScale * 0.5), (Math.random() - 0.5) * arcScale);
-      this.p2 = start.add(diff.scale(0.66)).add((Math.random() - 0.5) * arcScale, (Math.random() * arcScale * 0.5), (Math.random() - 0.5) * arcScale);
+      double arcScale = dist * 0.5;
+      this.p1 = start.add(diff.scale(0.33)).add((Math.random() - 0.5) * arcScale, (Math.random() * arcScale), (Math.random() - 0.5) * arcScale);
+      this.p2 = start.add(diff.scale(0.66)).add((Math.random() - 0.5) * arcScale, (Math.random() * arcScale), (Math.random() - 0.5) * arcScale);
+
+      /* Energy Arc Properties */
+      this.frequency = 2.0 + Math.random() * 3.0;
+      this.amplitude = 0.3 + Math.random() * 0.5;
+      this.phase = Math.random() * Math.PI * 2;
+      this.isSpiral = Math.random() > 0.5;
+
+      /* Calculate perpendicular vectors for offset */
+      Vec3 dir = diff.normalize();
+      Vec3 approxUp = new Vec3(0, 1, 0);
+      if (Math.abs(dir.dot(approxUp)) > 0.9) approxUp = new Vec3(1, 0, 0); // Handle vertical beams
+      this.right = dir.cross(approxUp).normalize();
+      this.upVec = right.cross(dir).normalize();
     }
 
     public boolean tick() {
@@ -227,18 +245,31 @@ public class ParticleBeamRendering {
         double t2 = t * t;
         double invT2 = invT * invT;
 
-        double x = (invT2 * invT * start.x) + (3 * invT2 * t * p1.x) + (3 * invT * t2 * p2.x) + (t2 * t * end.x);
-        double y = (invT2 * invT * start.y) + (3 * invT2 * t * p1.y) + (3 * invT * t2 * p2.y) + (t2 * t * end.y);
-        double z = (invT2 * invT * start.z) + (3 * invT2 * t * p1.z) + (3 * invT * t2 * p2.z) + (t2 * t * end.z);
+        // Base Bezier Path
+        double bx = (invT2 * invT * start.x) + (3 * invT2 * t * p1.x) + (3 * invT * t2 * p2.x) + (t2 * t * end.x);
+        double by = (invT2 * invT * start.y) + (3 * invT2 * t * p1.y) + (3 * invT * t2 * p2.y) + (t2 * t * end.y);
+        double bz = (invT2 * invT * start.z) + (3 * invT2 * t * p1.z) + (3 * invT * t2 * p2.z) + (t2 * t * end.z);
+
+        // Sine wave & spiraling offset
+        double angle = t * frequency * Math.PI * 2 + phase;
+        double offset1 = Math.sin(angle) * amplitude;
+        double offset2 = isSpiral ? Math.cos(angle) * amplitude : 0;
+
+        // Taper amplitude at start and end so beam connects to station and crate properly
+        double fade = Math.sin(t * Math.PI);
+        offset1 *= fade;
+        offset2 *= fade;
+
+        double x = bx + right.x * offset1 + upVec.x * offset2;
+        double y = by + right.y * offset1 + upVec.y * offset2;
+        double z = bz + right.z * offset1 + upVec.z * offset2;
 
         // Particle density
         if (Math.random() < 0.40) {
-          double jitter = 0.05;
-          level.addParticle(ParticleTypes.END_ROD, x + (Math.random() - 0.5) * jitter, y + (Math.random() - 0.5) * jitter, z + (Math.random() - 0.5) * jitter, 0, 0, 0);
+          level.addParticle(ParticleTypes.END_ROD, x, y, z, 0, 0, 0);
         }
         if (Math.random() < 0.20) {
-          double jitter = 0.025;
-          level.addParticle(ParticleTypes.WARPED_SPORE, x + (Math.random() - 0.5) * jitter, y + (Math.random() - 0.5) * jitter, z + (Math.random() - 0.5) * jitter, 0, 0, 0);
+          level.addParticle(ParticleTypes.WARPED_SPORE, x, y, z, 0, 0, 0);
         }
       }
     }
