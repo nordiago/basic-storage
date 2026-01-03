@@ -146,7 +146,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
     this.registeredOnServer = manager.isRegistered(worldPosition);
 
     if (!this.registeredOnServer) {
-      manager.onBlockAdded(level, worldPosition, false, true);
+      manager.onBlockAdded(level, worldPosition, getBlockState());
       this.registeredOnServer = true;
     }
 
@@ -164,7 +164,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
     CrateNetworkManager.CrateNetwork network = manager.getNetworkFor(worldPosition);
     if (network == null) return;
 
-    for (BlockPos cratePos : network.crates) {
+    for (BlockPos cratePos : network.crates()) {
       CrateSlotComponent contents = manager.getStorage(cratePos);
       if (contents == null || contents.item().isBlank()) {
         connectedEmptyCrates.add(cratePos);

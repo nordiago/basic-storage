@@ -1,5 +1,6 @@
 package com.khazoda.basicstorage.storage;
 
+import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.structure.CrateSlotComponent;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -8,6 +9,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 
@@ -29,10 +31,19 @@ public class CrateNetworkManager extends SavedData {
 
   private static final Codec<UUID> UUID_CODEC = Codec.STRING.xmap(UUID::fromString, UUID::toString);
 
-  private static final Codec<CrateNetwork> NETWORK_CODEC = RecordCodecBuilder.create(instance -> instance.group(UUID_CODEC.fieldOf("id").forGetter(n -> n.id), Codec.list(BLOCK_POS_VALUE_CODEC).fieldOf("crates").forGetter(n -> new ArrayList<>(n.crates)), Codec.list(BLOCK_POS_VALUE_CODEC).fieldOf("stations").forGetter(n -> new ArrayList<>(n.stations))).apply(instance, (id, crates, stations) -> {
+  private static final Codec<CrateNetwork> NETWORK_CODEC = RecordCodecBuilder.create(instance -> instance.group(UUID_CODEC.fieldOf("id").forGetter(n -> n.id), Codec.unboundedMap(Codec.STRING, Codec.list(BLOCK_POS_VALUE_CODEC)).fieldOf("nodes").orElse(Map.of()).forGetter(n -> {
+    Map<String, List<BlockPos>> nodes = new HashMap<>();
+    n.nodes.forEach((k, v) -> nodes.put(k, new ArrayList<>(v)));
+    return nodes;
+  }), Codec.list(BLOCK_POS_VALUE_CODEC).fieldOf("crates").orElse(List.of()).forGetter(n -> List.of()), Codec.list(BLOCK_POS_VALUE_CODEC).fieldOf("stations").orElse(List.of()).forGetter(n -> List.of()), Codec.list(BLOCK_POS_VALUE_CODEC).fieldOf("connectors").orElse(List.of()).forGetter(n -> List.of())).apply(instance, (id, nodes, legacyCrates, legacyStations, legacyConnectors) -> {
     CrateNetwork n = new CrateNetwork(id);
-    n.crates.addAll(crates);
-    n.stations.addAll(stations);
+    nodes.forEach((k, v) -> n.nodes.computeIfAbsent(k, _k -> new HashSet<>()).addAll(v));
+
+    /* Future-proof migration to prevent possibility of bugged networks */
+    if (!legacyCrates.isEmpty()) n.nodes.computeIfAbsent("crate", _k -> new HashSet<>()).addAll(legacyCrates);
+    if (!legacyStations.isEmpty()) n.nodes.computeIfAbsent("station", _k -> new HashSet<>()).addAll(legacyStations);
+    if (!legacyConnectors.isEmpty())
+      n.nodes.computeIfAbsent("connector", _k -> new HashSet<>()).addAll(legacyConnectors);
     return n;
   }));
 
@@ -52,7 +63,10 @@ public class CrateNetworkManager extends SavedData {
   }
 
   public boolean isRegistered(BlockPos pos) {
-    return blockToNetwork.containsKey(pos);
+    UUID networkId = blockToNetwork.get(pos);
+    if (networkId == null) return false;
+    CrateNetwork network = networks.get(networkId);
+    return network != null && network.contains(pos);
   }
 
   public CrateNetwork getNetworkFor(BlockPos pos) {
@@ -60,14 +74,30 @@ public class CrateNetworkManager extends SavedData {
     return id != null ? networks.get(id) : null;
   }
 
-  public void onBlockAdded(Level level, BlockPos pos, boolean isCrate, boolean isStation) {
+  private String getType(BlockState state) {
+    if (state.is(BlockRegistry.CRATE_BLOCK)) return "crate";
+    if (state.is(BlockRegistry.CRATE_STATION_BLOCK)) return "station";
+    if (state.is(BlockRegistry.CRATE_CONNECTOR_BLOCK)) return "connector";
+    return null;
+  }
+
+  public void onBlockAdded(Level level, BlockPos pos, BlockState state) {
     if (level.isClientSide()) return;
-    if (blockToNetwork.containsKey(pos)) return;
+    String type = getType(state);
+    if (type == null) return;
+
+    UUID currentId = blockToNetwork.get(pos);
+    if (currentId != null) {
+      CrateNetwork network = networks.get(currentId);
+      if (network != null && network.contains(pos)) return;
+      blockToNetwork.remove(pos);
+      if (network != null) network.nodes.values().forEach(set -> set.remove(pos));
+    }
 
     Set<UUID> adjacentNetworks = new HashSet<>();
     for (Direction dir : Direction.values()) {
       UUID neighborId = blockToNetwork.get(pos.relative(dir));
-      if (neighborId != null) adjacentNetworks.add(neighborId);
+      if (neighborId != null && networks.containsKey(neighborId)) adjacentNetworks.add(neighborId);
     }
 
     UUID networkId;
@@ -82,10 +112,9 @@ public class CrateNetworkManager extends SavedData {
       }
     }
 
-    CrateNetwork network = networks.get(networkId);
+    CrateNetwork network = networks.computeIfAbsent(networkId, CrateNetwork::new);
     blockToNetwork.put(pos, networkId);
-    if (isCrate) network.crates.add(pos);
-    if (isStation) network.stations.add(pos);
+    network.nodes.computeIfAbsent(type, k -> new HashSet<>()).add(pos);
 
     setDirty();
     notifyStations(level, networkId);
@@ -97,11 +126,12 @@ public class CrateNetworkManager extends SavedData {
     if (networkId == null) return;
 
     CrateNetwork network = networks.get(networkId);
-    network.crates.remove(pos);
-    network.stations.remove(pos);
+    if (network != null) {
+      network.nodes.values().forEach(set -> set.remove(pos));
+    }
     globalStorage.remove(pos);
 
-    if (network.isEmpty()) {
+    if (network != null && network.isEmpty()) {
       networks.remove(networkId);
     } else {
       rebuildNetwork(level, networkId, pos);
@@ -112,18 +142,15 @@ public class CrateNetworkManager extends SavedData {
 
   private void mergeNetworks(UUID targetId, UUID sourceId) {
     if (targetId.equals(sourceId)) return;
-    CrateNetwork target = networks.get(targetId);
+    CrateNetwork target = networks.computeIfAbsent(targetId, CrateNetwork::new);
     CrateNetwork source = networks.remove(sourceId);
     if (source == null) return;
-
-    for (BlockPos pos : source.crates) {
-      blockToNetwork.put(pos, targetId);
-      target.crates.add(pos);
-    }
-    for (BlockPos pos : source.stations) {
-      blockToNetwork.put(pos, targetId);
-      target.stations.add(pos);
-    }
+    source.nodes.forEach((type, posSet) -> {
+      for (BlockPos pos : posSet) {
+        blockToNetwork.put(pos, targetId);
+        target.nodes.computeIfAbsent(type, k -> new HashSet<>()).add(pos);
+      }
+    });
   }
 
   private void rebuildNetwork(Level level, UUID networkId, BlockPos removedPos) {
@@ -131,8 +158,7 @@ public class CrateNetworkManager extends SavedData {
     if (oldNetwork == null) return;
 
     Set<BlockPos> remainingBlocks = new HashSet<>();
-    remainingBlocks.addAll(oldNetwork.crates);
-    remainingBlocks.addAll(oldNetwork.stations);
+    oldNetwork.nodes.values().forEach(remainingBlocks::addAll);
 
     while (!remainingBlocks.isEmpty()) {
       BlockPos root = remainingBlocks.iterator().next();
@@ -147,8 +173,13 @@ public class CrateNetworkManager extends SavedData {
       while (!todo.isEmpty()) {
         BlockPos current = todo.poll();
         blockToNetwork.put(current, newId);
-        if (oldNetwork.crates.contains(current)) newNetwork.crates.add(current);
-        if (oldNetwork.stations.contains(current)) newNetwork.stations.add(current);
+
+        for (Map.Entry<String, Set<BlockPos>> entry : oldNetwork.nodes.entrySet()) {
+          if (entry.getValue().contains(current)) {
+            newNetwork.nodes.computeIfAbsent(entry.getKey(), k -> new HashSet<>()).add(current);
+            break;
+          }
+        }
 
         for (Direction dir : Direction.values()) {
           BlockPos neighbor = current.relative(dir);
@@ -180,7 +211,10 @@ public class CrateNetworkManager extends SavedData {
   private void notifyStations(Level level, UUID networkId) {
     CrateNetwork network = networks.get(networkId);
     if (network == null) return;
-    for (BlockPos stationPos : network.stations) {
+    Set<BlockPos> stations = network.nodes.get("station");
+    if (stations == null) return;
+
+    for (BlockPos stationPos : stations) {
       if (level.isLoaded(stationPos)) {
         var be = level.getBlockEntity(stationPos);
         if (be instanceof NetworkNode node) {
@@ -193,15 +227,37 @@ public class CrateNetworkManager extends SavedData {
 
   public static class CrateNetwork {
     public final UUID id;
-    public final Set<BlockPos> crates = new HashSet<>();
-    public final Set<BlockPos> stations = new HashSet<>();
+    public final Map<String, Set<BlockPos>> nodes = new HashMap<>();
 
     public CrateNetwork(UUID id) {
       this.id = id;
     }
 
+    public Set<BlockPos> crates() {
+      return nodes.getOrDefault("crate", Set.of());
+    }
+
+    public Set<BlockPos> stations() {
+      return nodes.getOrDefault("station", Set.of());
+    }
+
+    public Set<BlockPos> connectors() {
+      return nodes.getOrDefault("connector", Set.of());
+    }
+
+    public boolean contains(BlockPos pos) {
+      for (Set<BlockPos> set : nodes.values()) {
+        if (set.contains(pos)) return true;
+      }
+      return false;
+    }
+
     public boolean isEmpty() {
-      return crates.isEmpty() && stations.isEmpty();
+      if (nodes.isEmpty()) return true;
+      for (Set<BlockPos> set : nodes.values()) {
+        if (!set.isEmpty()) return false;
+      }
+      return true;
     }
   }
 }

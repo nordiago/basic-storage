@@ -214,7 +214,7 @@ public class CrateStationBlock extends BaseEntityBlock {
   public void setPlacedBy(Level world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
     super.setPlacedBy(world, pos, state, placer, itemStack);
     if (world instanceof ServerLevel serverLevel) {
-      CrateNetworkManager.get(serverLevel).onBlockAdded(world, pos, false, true);
+      CrateNetworkManager.get(serverLevel).onBlockAdded(world, pos, state);
     }
     world.gameEvent(placer, GameEvent.BLOCK_PLACE, pos);
   }

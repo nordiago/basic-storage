@@ -90,7 +90,7 @@ public class CrateBlock extends BaseEntityBlock {
   public void setPlacedBy(Level world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
     super.setPlacedBy(world, pos, state, placer, itemStack);
     if (world instanceof ServerLevel serverLevel) {
-      CrateNetworkManager.get(serverLevel).onBlockAdded(world, pos, true, false);
+      CrateNetworkManager.get(serverLevel).onBlockAdded(world, pos, state);
     }
     world.gameEvent(placer, GameEvent.BLOCK_PLACE, pos);
     if (!world.isClientSide()) {

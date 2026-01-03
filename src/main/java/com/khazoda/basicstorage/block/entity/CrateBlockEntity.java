@@ -57,7 +57,7 @@ public class CrateBlockEntity extends BlockEntity implements ItemOwner {
     this.registeredOnServer = manager.isRegistered(worldPosition);
 
     if (!this.registeredOnServer) {
-      manager.onBlockAdded(level, worldPosition, true, false);
+      manager.onBlockAdded(level, worldPosition, getBlockState());
       manager.updateStorage(level, worldPosition, storage.toComponent());
       this.registeredOnServer = true;
     }
