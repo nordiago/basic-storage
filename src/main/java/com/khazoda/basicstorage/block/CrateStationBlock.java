@@ -103,13 +103,14 @@ public class CrateStationBlock extends BaseEntityBlock {
             double inRate = cdbe.getInRate();
             double outRate = cdbe.getOutRate();
 
-            if (inRate > 0 || outRate > 0) {
+            if (cdbe.isClogged()) {
+              message = Component.translatable("message.basicstorage.station.status.clogged").withColor(0xFF5555);
+            } else if (inRate > 0 || outRate > 0) {
               /* If station is having items fed to it, display the in/out rate per second */
               message = Component.translatable("message.basicstorage.station.throughput", inRate, outRate).withColor(getThroughputTextColor(inRate));
             } else {
               /* Otherwise, show network connection details */
               message = Component.translatable("message.basicstorage.station.connected_valid_crate_count", connectedValidCrateCount).withColor(0xddff99).append(Component.literal(" | ").withColor(0xffffff)).append(Component.translatable("message.basicstorage.station.connected_empty_crate_count", connectedEmptyCrateCount).withColor(0xffefcd));
-
             }
             player.displayClientMessage(message, true);
           }

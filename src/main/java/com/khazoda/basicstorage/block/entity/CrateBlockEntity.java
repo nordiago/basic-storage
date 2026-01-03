@@ -140,7 +140,7 @@ public class CrateBlockEntity extends BlockEntity implements ItemOwner {
   @Override
   public void setRemoved() {
     if (this.level instanceof ServerLevel serverLevel) {
-      if (!this.level.getBlockState(this.worldPosition).is(this.getBlockState().getBlock())) {
+      if (serverLevel.isLoaded(this.worldPosition) && !this.level.getBlockState(this.worldPosition).is(this.getBlockState().getBlock())) {
         CrateNetworkManager.get(serverLevel).onBlockRemoved(this.level, this.worldPosition);
       }
     }

@@ -20,7 +20,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
-import net.minecraft.world.Containers;
 import net.minecraft.world.WorldlyContainer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -118,11 +117,6 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
             }
           }
         }
-      } else {
-        // Eject items if no compatible crates are found
-        Containers.dropItemStack(level, worldPosition.getX() + 0.5, worldPosition.getY() + 1.0, worldPosition.getZ() + 0.5, stack.copy());
-        stationBuffer.set(i, ItemStack.EMPTY);
-        changed = true;
       }
     }
 
@@ -132,11 +126,20 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
       for (ServerPlayer player : PlayerLookup.tracking(this)) {
         ServerPlayNetworking.send(player, payload);
       }
+    } else if (!stationBuffer.isEmpty() && !changed && level instanceof ServerLevel serverLevel) {
+      serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.SMOKE, worldPosition.getX() + 0.5, worldPosition.getY() + 1.1, worldPosition.getZ() + 0.5, 5, 0.1, 0.1, 0.1, 0.05);
     }
 
     if (changed) {
       setChanged();
     }
+  }
+
+  public boolean isClogged() {
+    for (ItemStack stack : stationBuffer) {
+      if (stack.isEmpty()) return false;
+    }
+    return true;
   }
 
   private void checkRegistration(ServerLevel level) {
@@ -181,7 +184,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
   @Override
   public void setRemoved() {
     if (this.level instanceof ServerLevel serverLevel) {
-      if (!this.level.getBlockState(this.worldPosition).is(this.getBlockState().getBlock())) {
+      if (serverLevel.isLoaded(this.worldPosition) && !this.level.getBlockState(this.worldPosition).is(this.getBlockState().getBlock())) {
         CrateNetworkManager.get(serverLevel).onBlockRemoved(this.level, this.worldPosition);
       }
     }
@@ -293,6 +296,9 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
     view.read("registered", Codec.BOOL).ifPresent(v -> this.registeredOnServer = v);
     view.read("items", Codec.list(ItemStack.CODEC)).ifPresent(list -> {
       this.stationBuffer.clear();
+      for (int i = 0; i < list.size() && i < this.stationBuffer.size(); i++) {
+        this.stationBuffer.set(i, list.get(i));
+      }
     });
   }
 
