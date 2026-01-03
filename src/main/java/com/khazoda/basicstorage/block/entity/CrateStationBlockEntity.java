@@ -126,7 +126,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
       for (ServerPlayer player : PlayerLookup.tracking(this)) {
         ServerPlayNetworking.send(player, payload);
       }
-    } else if (!stationBuffer.isEmpty() && !changed && level instanceof ServerLevel serverLevel) {
+    } else if (!stationBuffer.isEmpty() && !changed && level instanceof ServerLevel serverLevel && isClogged()) {
       serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.SMOKE, worldPosition.getX() + 0.5, worldPosition.getY() + 1.1, worldPosition.getZ() + 0.5, 5, 0.1, 0.1, 0.1, 0.05);
     }
 
