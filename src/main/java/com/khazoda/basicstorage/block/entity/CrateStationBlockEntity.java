@@ -43,7 +43,12 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
   private boolean hasCheckedRegistration = false;
   private boolean registeredOnServer = false;
 
-  private final NonNullList<ItemStack> stationBuffer = NonNullList.withSize(9, ItemStack.EMPTY);
+  private final NonNullList<ItemStack> stationBuffer = NonNullList.withSize(54, ItemStack.EMPTY);
+  private final long[] inThroughputBuckets = new long[30];
+  private final long[] outThroughputBuckets = new long[30];
+  private long lastThroughputTick = -1;
+  private int lastStationBufferCount = -1;
+  private int itemsDistributedInTick = 0;
   private int tickCounter = 0;
   private int currentDistributionInterval = 100;
 
@@ -55,6 +60,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
     if (world instanceof ServerLevel serverLevel) {
       be.checkRegistration(serverLevel);
       be.tickDistribution();
+      be.tickThroughputTracking(serverLevel);
     }
     if (be.needsCacheUpdate) {
       be.buildCrateCache();
@@ -106,6 +112,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
                 transaction.commit();
                 changed = true;
                 beamTargets.add(new StationBeamPayload.Target(cratePos, (int) inserted));
+                this.itemsDistributedInTick += (int) inserted;
                 if (stack.isEmpty()) break;
               }
             }
@@ -195,6 +202,71 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
 
   public Map<ItemVariant, List<BlockPos>> getCrateRegistry() {
     return crateRegistry;
+  }
+
+  public double getInRate() {
+    long total = 0;
+    for (long count : inThroughputBuckets) total += count;
+    return Math.round((total / 30.0) * 10.0) / 10.0;
+  }
+
+  public double getOutRate() {
+    long total = 0;
+    for (long count : outThroughputBuckets) total += count;
+    return Math.round((total / 30.0) * 10.0) / 10.0;
+  }
+
+  private void tickThroughputTracking(ServerLevel level) {
+    long currentTick = level.getGameTime();
+    updateThroughputBuckets(currentTick);
+
+    int currentBufferCount = 0;
+    for (ItemStack stack : stationBuffer) {
+      currentBufferCount += stack.getCount();
+    }
+
+    if (lastStationBufferCount != -1) {
+      int delta = currentBufferCount - lastStationBufferCount;
+      int itemsIn = Math.max(0, delta + itemsDistributedInTick);
+      if (itemsIn > 0) trackInput(itemsIn);
+      if (itemsDistributedInTick > 0) trackOutput(itemsDistributedInTick);
+    }
+
+    lastStationBufferCount = currentBufferCount;
+    itemsDistributedInTick = 0;
+  }
+
+  private void updateThroughputBuckets(long currentTick) {
+    long currentSecond = currentTick / 20;
+    if (lastThroughputTick == -1) {
+      lastThroughputTick = currentTick;
+      return;
+    }
+    long lastSecond = lastThroughputTick / 20;
+
+    if (currentSecond != lastSecond) {
+      // Clear all buckets between last session and now (cap at 30)
+      for (long s = lastSecond + 1; s <= currentSecond; s++) {
+        int idx = (int) (s % 30);
+        inThroughputBuckets[idx] = 0;
+        outThroughputBuckets[idx] = 0;
+      }
+      lastThroughputTick = currentTick;
+    }
+  }
+
+  private void trackInput(int amount) {
+    if (this.level == null || amount <= 0) return;
+    updateThroughputBuckets(this.level.getGameTime());
+    int currentBucket = (int) ((this.level.getGameTime() / 20) % 30);
+    inThroughputBuckets[currentBucket] += amount;
+  }
+
+  private void trackOutput(int amount) {
+    if (this.level == null || amount <= 0) return;
+    updateThroughputBuckets(this.level.getGameTime());
+    int currentBucket = (int) ((this.level.getGameTime() / 20) % 30);
+    outThroughputBuckets[currentBucket] += amount;
   }
 
   @Override

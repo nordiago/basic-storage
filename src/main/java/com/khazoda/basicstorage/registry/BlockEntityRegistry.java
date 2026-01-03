@@ -6,6 +6,8 @@ import com.khazoda.basicstorage.block.entity.CrateStationBlockEntity;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.fabricmc.fabric.api.transfer.v1.item.InventoryStorage;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;
+import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
+import net.fabricmc.fabric.api.transfer.v1.storage.base.FilteringStorage;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -18,8 +20,18 @@ public class BlockEntityRegistry {
 
 
   public static void init() {
-    /* Lets crates work with hoppers and other item transfer */
+    /* Lets crates & stations work with hoppers and other item transfer */
     ItemStorage.SIDED.registerForBlockEntity((blockEntity, direction) -> blockEntity.storage, CRATE_BLOCK_ENTITY);
-    ItemStorage.SIDED.registerForBlockEntity(InventoryStorage::of, BlockEntityRegistry.CRATE_STATION_BLOCK_ENTITY);
+    ItemStorage.SIDED.registerForBlockEntity((blockEntity, direction) -> new FilteringStorage<>(InventoryStorage.of(blockEntity, direction)) {
+      @Override
+      public boolean supportsExtraction() {
+        return false;
+      }
+
+      @Override
+      public long extract(ItemVariant resource, long maxAmount, net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext transaction) {
+        return 0;
+      }
+    }, BlockEntityRegistry.CRATE_STATION_BLOCK_ENTITY);
   }
 }

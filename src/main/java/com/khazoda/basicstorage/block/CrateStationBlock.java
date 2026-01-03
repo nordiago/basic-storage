@@ -19,6 +19,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stats;
+import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
@@ -97,8 +98,21 @@ public class CrateStationBlock extends BaseEntityBlock {
         inserted = depositInventory(player, cdbe, beamTargets);
       } else if (!player.isShiftKeyDown()) {
         if (playerStack.isEmpty()) {
-          if (!world.isClientSide())
-            player.displayClientMessage(Component.translatable("message.basicstorage.station.connected_valid_crate_count", connectedValidCrateCount).withColor(0xddff99).append(Component.literal(" | ").withColor(0xffffff)).append(Component.translatable("message.basicstorage.station.connected_empty_crate_count", connectedEmptyCrateCount).withColor(0xffefcd)), true);
+          if (!world.isClientSide()) {
+            Component message;
+            double inRate = cdbe.getInRate();
+            double outRate = cdbe.getOutRate();
+
+            if (inRate > 0 || outRate > 0) {
+              /* If station is having items fed to it, display the in/out rate per second */
+              message = Component.translatable("message.basicstorage.station.throughput", inRate, outRate).withColor(getThroughputTextColor(inRate));
+            } else {
+              /* Otherwise, show network connection details */
+              message = Component.translatable("message.basicstorage.station.connected_valid_crate_count", connectedValidCrateCount).withColor(0xddff99).append(Component.literal(" | ").withColor(0xffffff)).append(Component.translatable("message.basicstorage.station.connected_empty_crate_count", connectedEmptyCrateCount).withColor(0xffefcd));
+
+            }
+            player.displayClientMessage(message, true);
+          }
           return InteractionResult.PASS;
         }
         inserted = depositStack(player.getItemInHand(hand), cdbe, beamTargets);
@@ -207,6 +221,10 @@ public class CrateStationBlock extends BaseEntityBlock {
 
   @Override
   protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel world, BlockPos pos, boolean moved) {
+    BlockEntity blockEntity = world.getBlockEntity(pos);
+    if (blockEntity instanceof CrateStationBlockEntity station) {
+      Containers.dropContents(world, pos, station);
+    }
     world.updateNeighbourForOutputSignal(pos, state.getBlock());
     CrateNetworkManager.get(world).onBlockRemoved(world, pos);
     world.gameEvent(null, GameEvent.BLOCK_DESTROY, pos);
@@ -221,5 +239,19 @@ public class CrateStationBlock extends BaseEntityBlock {
   @Override
   public MapCodec<CrateStationBlock> codec() {
     return CODEC;
+  }
+
+  private static int getThroughputTextColor(double inRate) {
+    double max = 700.0;
+    double ratio = Math.min(1.0, inRate / max);
+
+    int r1 = 0xbb, g1 = 0xcc, b1 = 0xff;
+    int r2 = 0xff, g2 = 0x55, b2 = 0x55;
+
+    int r = (int) (r1 + (r2 - r1) * ratio);
+    int g = (int) (g1 + (g2 - g1) * ratio);
+    int b = (int) (b1 + (b2 - b1) * ratio);
+
+    return (r << 16) | (g << 8) | b;
   }
 }
