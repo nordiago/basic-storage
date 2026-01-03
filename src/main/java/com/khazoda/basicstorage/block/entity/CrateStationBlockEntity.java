@@ -180,6 +180,11 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
 
   @Override
   public void setRemoved() {
+    if (this.level instanceof ServerLevel serverLevel) {
+      if (!this.level.getBlockState(this.worldPosition).is(this.getBlockState().getBlock())) {
+        CrateNetworkManager.get(serverLevel).onBlockRemoved(this.level, this.worldPosition);
+      }
+    }
     crateRegistry.clear();
     sortedVariants.clear();
     connectedValidCrates.clear();

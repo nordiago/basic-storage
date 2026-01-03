@@ -63,7 +63,7 @@ public class CrateConnectorBlock extends Block {
 
   @Override
   protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos, Player player, BlockHitResult hit) {
-    if (!world.isClientSide()) {
+    if (!world.isClientSide() && player.getMainHandItem().isEmpty()) {
       CrateNetworkManager manager = CrateNetworkManager.get((ServerLevel) world);
       var network = manager.getNetworkFor(pos);
       if (network != null) {

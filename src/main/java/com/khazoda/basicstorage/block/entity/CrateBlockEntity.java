@@ -136,4 +136,14 @@ public class CrateBlockEntity extends BlockEntity implements ItemOwner {
   public float getVisualRotationYInDegrees() {
     return this.getBlockState().getValue(CrateBlock.FACING).getOpposite().toYRot();
   }
+
+  @Override
+  public void setRemoved() {
+    if (this.level instanceof ServerLevel serverLevel) {
+      if (!this.level.getBlockState(this.worldPosition).is(this.getBlockState().getBlock())) {
+        CrateNetworkManager.get(serverLevel).onBlockRemoved(this.level, this.worldPosition);
+      }
+    }
+    super.setRemoved();
+  }
 }

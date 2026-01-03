@@ -24,10 +24,7 @@ public class CrateNetworkManager extends SavedData {
 
   private static final Codec<BlockPos> BLOCK_POS_VALUE_CODEC = Codec.LONG.xmap(BlockPos::of, BlockPos::asLong);
 
-  private static final Codec<BlockPos> BLOCK_POS_KEY_CODEC = Codec.STRING.xmap(s -> {
-    String[] parts = s.split(",");
-    return new BlockPos(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
-  }, pos -> pos.getX() + "," + pos.getY() + "," + pos.getZ());
+  private static final Codec<BlockPos> BLOCK_POS_KEY_CODEC = Codec.STRING.xmap(s -> BlockPos.of(Long.parseLong(s)), pos -> String.valueOf(pos.asLong()));
 
   private static final Codec<UUID> UUID_CODEC = Codec.STRING.xmap(UUID::fromString, UUID::toString);
 

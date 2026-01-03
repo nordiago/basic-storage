@@ -11,7 +11,7 @@
     "/": "minecraft:stick"
   },
   "result": {
-    "id": "basicstorage:crate",
+    "id": "basicstorage:crate_connector",
     "count": 4
   }
 }
