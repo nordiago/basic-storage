@@ -34,6 +34,7 @@ public class BasicStorage implements ModInitializer {
     Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, Identifier.parse(Constants.NAMESPACE), BW_ITEMGROUP);
     BlockRegistry.init();
     BlockEntityRegistry.init();
+    ParticleRegistry.init();
     SoundRegistry.init();
     EventRegistry.init();
     DataComponentRegistry.init();

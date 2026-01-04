@@ -1,13 +1,16 @@
 package com.khazoda.basicstorage;
 
 import com.khazoda.basicstorage.config.ConfigSyncPayload;
+import com.khazoda.basicstorage.particle.TwinkleParticle;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
+import com.khazoda.basicstorage.registry.ParticleRegistry;
 import com.khazoda.basicstorage.renderer.CrateItemSpecialRenderer;
 import com.khazoda.basicstorage.renderer.CrateRenderer;
 import com.khazoda.basicstorage.renderer.ParticleBeamRendering;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 import net.minecraft.client.renderer.special.SpecialModelRenderers;
 import net.minecraft.resources.Identifier;
@@ -39,5 +42,8 @@ public class BasicStorageClient implements ClientModInitializer {
 
     /* Register crate item contents renderer */
     BlockEntityRenderers.register(BlockEntityRegistry.CRATE_BLOCK_ENTITY, CrateRenderer::new);
+
+    /* Register custom particles */
+    ParticleFactoryRegistry.getInstance().register(ParticleRegistry.TWINKLE, TwinkleParticle.Factory::new);
   }
 }

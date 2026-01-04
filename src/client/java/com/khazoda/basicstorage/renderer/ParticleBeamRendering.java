@@ -2,12 +2,12 @@ package com.khazoda.basicstorage.renderer;
 
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.packet.StationBeamPayload;
+import com.khazoda.basicstorage.registry.ParticleRegistry;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
@@ -22,7 +22,7 @@ public class ParticleBeamRendering {
   private ParticleBeamRendering() {
   }
 
-  public static final int BEAM_DURATION_TICKS = 4;
+  public static final int BEAM_DURATION_TICKS = 6;
   public static final int HIGHLIGHT_DURATION_TICKS = 20;
 
   private final List<Beam> activeBeams = new ArrayList<>();
@@ -186,6 +186,7 @@ public class ParticleBeamRendering {
     final double phase;
     final boolean isSpiral;
     final Vec3 right, upVec;
+    final Vec3[] beamVectors;
 
     public Beam(ClientLevel level, Vec3 start, Vec3 end, int duration, BlockPos targetPos) {
       this.level = level;
@@ -215,6 +216,36 @@ public class ParticleBeamRendering {
       if (Math.abs(dir.dot(approxUp)) > 0.9) approxUp = new Vec3(1, 0, 0); // Handle vertical beams
       this.right = dir.cross(approxUp).normalize();
       this.upVec = right.cross(dir).normalize();
+
+      /* Pre-calculate beam paths */
+      this.beamVectors = new Vec3[totalSteps];
+      for (int i = 0; i < totalSteps; i++) {
+        double t = (double) i / totalSteps;
+        double invT = 1.0 - t;
+        double t2 = t * t;
+        double invT2 = invT * invT;
+
+        // Base Bezier Path
+        double bx = (invT2 * invT * start.x) + (3 * invT2 * t * p1.x) + (3 * invT * t2 * p2.x) + (t2 * t * end.x);
+        double by = (invT2 * invT * start.y) + (3 * invT2 * t * p1.y) + (3 * invT * t2 * p2.y) + (t2 * t * end.y);
+        double bz = (invT2 * invT * start.z) + (3 * invT2 * t * p1.z) + (3 * invT * t2 * p2.z) + (t2 * t * end.z);
+
+        // Sine wave & spiraling offset
+        double angle = t * frequency * Math.PI * 2 + phase;
+        double offset1 = Math.sin(angle) * amplitude;
+        double offset2 = isSpiral ? Math.cos(angle) * amplitude : 0;
+
+        // Taper amplitude at start and end so beam connects to station and crate properly
+        double fade = Math.sin(t * Math.PI);
+        offset1 *= fade;
+        offset2 *= fade;
+
+        double x = bx + right.x * offset1 + upVec.x * offset2;
+        double y = by + right.y * offset1 + upVec.y * offset2;
+        double z = bz + right.z * offset1 + upVec.z * offset2;
+
+        this.beamVectors[i] = new Vec3(x, y, z);
+      }
     }
 
     public boolean tick() {
@@ -240,36 +271,9 @@ public class ParticleBeamRendering {
       if (endStep > totalSteps) endStep = totalSteps;
 
       for (int i = startStep; i < endStep; i++) {
-        double t = (double) i / totalSteps;
-        double invT = 1.0 - t;
-        double t2 = t * t;
-        double invT2 = invT * invT;
-
-        // Base Bezier Path
-        double bx = (invT2 * invT * start.x) + (3 * invT2 * t * p1.x) + (3 * invT * t2 * p2.x) + (t2 * t * end.x);
-        double by = (invT2 * invT * start.y) + (3 * invT2 * t * p1.y) + (3 * invT * t2 * p2.y) + (t2 * t * end.y);
-        double bz = (invT2 * invT * start.z) + (3 * invT2 * t * p1.z) + (3 * invT * t2 * p2.z) + (t2 * t * end.z);
-
-        // Sine wave & spiraling offset
-        double angle = t * frequency * Math.PI * 2 + phase;
-        double offset1 = Math.sin(angle) * amplitude;
-        double offset2 = isSpiral ? Math.cos(angle) * amplitude : 0;
-
-        // Taper amplitude at start and end so beam connects to station and crate properly
-        double fade = Math.sin(t * Math.PI);
-        offset1 *= fade;
-        offset2 *= fade;
-
-        double x = bx + right.x * offset1 + upVec.x * offset2;
-        double y = by + right.y * offset1 + upVec.y * offset2;
-        double z = bz + right.z * offset1 + upVec.z * offset2;
-
-        // Particle density
-        if (Math.random() < 0.40) {
-          level.addParticle(ParticleTypes.END_ROD, x, y, z, 0, 0, 0);
-        }
-        if (Math.random() < 0.20) {
-          level.addParticle(ParticleTypes.WARPED_SPORE, x, y, z, 0, 0, 0);
+        Vec3 pos = beamVectors[i];
+        if (Math.random() < 0.30) {
+          level.addParticle(ParticleRegistry.TWINKLE, pos.x, pos.y, pos.z, 0.0, 0.0, 0.0);
         }
       }
     }
