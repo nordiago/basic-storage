@@ -263,10 +263,10 @@ public class ParticleBeamRendering {
 
       for (int i = startStep; i < endStep; i++) {
         Vec3 pos = beamVectors[i];
-        if (Math.random() < 0.05) {
+        if (level.random.nextFloat() < 0.05f) {
           level.addParticle(ParticleRegistry.TWINKLE, pos.x, pos.y, pos.z, 0.0, 0.0, 0.0);
         }
-        if (Math.random() < 0.85) {
+        if (level.random.nextFloat() < 0.85f) {
           level.addParticle(ParticleRegistry.VOIDY, pos.x, pos.y, pos.z, 0.0, 0.0, 0.0);
         }
       }

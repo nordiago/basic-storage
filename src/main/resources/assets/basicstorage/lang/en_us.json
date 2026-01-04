@@ -13,6 +13,7 @@
   "subtitles.basicstorage.block.crate.extract_one": "Item extracted",
   "subtitles.basicstorage.block.crate.extract_many": "Stack extracted",
   "subtitles.basicstorage.block.crate.no_match": "Station refuses item",
+  "subtitles.basicstorage.block.crate_station.whoosh": "Station fires beam",
   "block.basicstorage.crate_connector": "Crate Connector",
   "message.basicstorage.connector.info": "• %d Crates | %d Stations | %d Connectors •",
   "message.basicstorage.station.status.clogged": "• Buffer Clogged •"

@@ -14,6 +14,7 @@ public class SoundRegistry {
   public static final SoundEvent INSERT_MANY = register("insert_many");
   public static final SoundEvent INSERT_LOADS = register("insert_loads");
   public static final SoundEvent NO_MATCH = register("no_match");
+  public static final SoundEvent WHOOSH = register("whoosh");
 
   public static void init() {
   }
