@@ -4,6 +4,7 @@ import com.khazoda.basicstorage.packet.StationBeamPayload;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
 import com.khazoda.basicstorage.storage.CrateNetworkManager;
+import com.khazoda.basicstorage.storage.CrateNetwork;
 import com.khazoda.basicstorage.storage.NetworkNode;
 import com.khazoda.basicstorage.structure.CrateSlotComponent;
 import com.mojang.serialization.Codec;
@@ -167,7 +168,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
     connectedEmptyCrates.clear();
 
     CrateNetworkManager manager = CrateNetworkManager.get(serverLevel);
-    CrateNetworkManager.CrateNetwork network = manager.getNetworkFor(worldPosition);
+    CrateNetwork network = manager.getNetworkFor(worldPosition);
     if (network == null) return;
 
     for (BlockPos cratePos : network.crates()) {
@@ -372,9 +373,6 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
 
   @Override
   public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-    if (this.level instanceof ServerLevel serverLevel) {
-      checkRegistration(serverLevel);
-    }
     CompoundTag nbt = this.saveCustomOnly(registries);
     nbt.putBoolean("registered", this.registeredOnServer);
     return nbt;

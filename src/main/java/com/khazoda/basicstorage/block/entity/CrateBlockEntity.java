@@ -88,9 +88,6 @@ public class CrateBlockEntity extends BlockEntity implements ItemOwner {
 
   @Override
   public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-    if (this.level instanceof ServerLevel serverLevel) {
-      checkRegistration(serverLevel);
-    }
     CompoundTag nbt = this.saveCustomOnly(registries);
     nbt.putBoolean("registered", this.registeredOnServer);
     return nbt;

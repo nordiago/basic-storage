@@ -2,10 +2,17 @@ package com.khazoda.basicstorage.storage;
 
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.structure.CrateSlotComponent;
+import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.DynamicOps;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.level.Level;
@@ -14,49 +21,162 @@ import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class CrateNetworkManager extends SavedData {
   private static final String DATA_ID = "basicstorage_networks";
+  private static final Map<ServerLevel, CrateNetworkManager> INSTANCE_CACHE = new ConcurrentHashMap<>();
 
-  private final Map<BlockPos, UUID> blockToNetwork = new HashMap<>();
-  private final Map<UUID, CrateNetwork> networks = new HashMap<>();
-  private final Map<BlockPos, CrateSlotComponent> globalStorage = new HashMap<>();
+  private final Map<BlockPos, UUID> blockToNetwork = new ConcurrentHashMap<>();
+  private final Map<UUID, CrateNetwork> networks = new ConcurrentHashMap<>();
+  private final Map<BlockPos, CrateSlotComponent> globalStorage = new ConcurrentHashMap<>();
 
-  private static final Codec<BlockPos> BLOCK_POS_VALUE_CODEC = Codec.LONG.xmap(BlockPos::of, BlockPos::asLong);
-
-  private static final Codec<BlockPos> BLOCK_POS_KEY_CODEC = Codec.STRING.xmap(s -> BlockPos.of(Long.parseLong(s)), pos -> String.valueOf(pos.asLong()));
-
-  private static final Codec<UUID> UUID_CODEC = Codec.STRING.xmap(UUID::fromString, UUID::toString);
-
-  private static final Codec<CrateNetwork> NETWORK_CODEC = RecordCodecBuilder.create(instance -> instance.group(UUID_CODEC.fieldOf("id").forGetter(n -> n.id), Codec.unboundedMap(Codec.STRING, Codec.list(BLOCK_POS_VALUE_CODEC)).fieldOf("nodes").orElse(Map.of()).forGetter(n -> {
-    Map<String, List<BlockPos>> nodes = new HashMap<>();
-    n.nodes.forEach((k, v) -> nodes.put(k, new ArrayList<>(v)));
-    return nodes;
-  }), Codec.list(BLOCK_POS_VALUE_CODEC).fieldOf("crates").orElse(List.of()).forGetter(n -> List.of()), Codec.list(BLOCK_POS_VALUE_CODEC).fieldOf("stations").orElse(List.of()).forGetter(n -> List.of()), Codec.list(BLOCK_POS_VALUE_CODEC).fieldOf("connectors").orElse(List.of()).forGetter(n -> List.of())).apply(instance, (id, nodes, legacyCrates, legacyStations, legacyConnectors) -> {
-    CrateNetwork n = new CrateNetwork(id);
-    nodes.forEach((k, v) -> n.nodes.computeIfAbsent(k, _k -> new HashSet<>()).addAll(v));
-
-    /* Future-proof migration to prevent possibility of bugged networks */
-    if (!legacyCrates.isEmpty()) n.nodes.computeIfAbsent("crate", _k -> new HashSet<>()).addAll(legacyCrates);
-    if (!legacyStations.isEmpty()) n.nodes.computeIfAbsent("station", _k -> new HashSet<>()).addAll(legacyStations);
-    if (!legacyConnectors.isEmpty())
-      n.nodes.computeIfAbsent("connector", _k -> new HashSet<>()).addAll(legacyConnectors);
-    return n;
-  }));
-
-  public static final Codec<CrateNetworkManager> CODEC = RecordCodecBuilder.create(instance -> instance.group(Codec.unboundedMap(BLOCK_POS_KEY_CODEC, UUID_CODEC).fieldOf("blockToNetwork").forGetter(m -> m.blockToNetwork), Codec.unboundedMap(UUID_CODEC, NETWORK_CODEC).fieldOf("networks").forGetter(m -> m.networks), Codec.unboundedMap(BLOCK_POS_KEY_CODEC, CrateSlotComponent.CODEC).fieldOf("globalStorage").forGetter(m -> m.globalStorage)).apply(instance, (blockToNetwork, networks, globalStorage) -> {
-    CrateNetworkManager manager = new CrateNetworkManager();
-    manager.blockToNetwork.putAll(blockToNetwork);
-    manager.networks.putAll(networks);
-    manager.globalStorage.putAll(globalStorage);
-    return manager;
-  }));
 
   public CrateNetworkManager() {
   }
 
+  private static final Codec<CrateNetworkManager> OPTIMIZED_CODEC = new Codec<>() {
+    @Override
+    public <T> DataResult<Pair<CrateNetworkManager, T>> decode(DynamicOps<T> ops, T input) {
+      Tag tag = ops.convertTo(NbtOps.INSTANCE, input);
+      if (tag instanceof CompoundTag nbt) {
+        return DataResult.success(Pair.of(load(nbt, null), input));
+      }
+      return DataResult.error(() -> "Not a compound tag");
+    }
+
+    @Override
+    public <T> DataResult<T> encode(CrateNetworkManager input, DynamicOps<T> ops, T prefix) {
+      CompoundTag nbt = input.saveNbt(new CompoundTag(), null);
+      return DataResult.success(NbtOps.INSTANCE.convertTo(ops, nbt));
+    }
+  };
+
   public static CrateNetworkManager get(ServerLevel level) {
-    return level.getDataStorage().computeIfAbsent(new SavedDataType<>(DATA_ID, CrateNetworkManager::new, CrateNetworkManager.CODEC, DataFixTypes.LEVEL));
+    return INSTANCE_CACHE.computeIfAbsent(level, l -> {
+      SavedDataType<CrateNetworkManager> type = new SavedDataType<>(DATA_ID, CrateNetworkManager::new, OPTIMIZED_CODEC, DataFixTypes.LEVEL);
+      return l.getDataStorage().computeIfAbsent(type);
+    });
+  }
+
+  public static void clearCache(ServerLevel level) {
+    INSTANCE_CACHE.remove(level);
+  }
+
+  public static CrateNetworkManager load(CompoundTag nbt, HolderLookup.Provider provider) {
+    CrateNetworkManager manager = new CrateNetworkManager();
+
+
+    // Load blockToNetwork
+    nbt.getLongArray("btn_pos").ifPresent(posArr -> {
+      nbt.getLongArray("btn_uuid").ifPresent(uuidArr -> {
+        int count = Math.min(posArr.length, uuidArr.length / 2);
+        for (int i = 0; i < count; i++) {
+          manager.blockToNetwork.put(BlockPos.of(posArr[i]), new UUID(uuidArr[i * 2], uuidArr[i * 2 + 1]));
+        }
+      });
+    });
+
+    // Load networks
+    nbt.getCompound("networks").ifPresent(networksTag -> {
+      for (String idStr : networksTag.keySet()) {
+        try {
+          UUID id = UUID.fromString(idStr);
+          networksTag.getCompound(idStr).ifPresent(nTag -> {
+            CrateNetwork network = new CrateNetwork(id);
+            nTag.getCompound("nodes").ifPresent(nodesTag -> {
+              for (String typeName : nodesTag.keySet()) {
+                nodesTag.getLongArray(typeName).ifPresent(nodesArr -> {
+                  Set<BlockPos> posSet = network.nodes.computeIfAbsent(typeName, k -> Collections.newSetFromMap(new ConcurrentHashMap<>()));
+                  for (long p : nodesArr) posSet.add(BlockPos.of(p));
+                });
+              }
+            });
+            manager.networks.put(id, network);
+          });
+        } catch (Exception ignored) {
+        }
+      }
+    });
+
+    // Load paletted globalStorage
+    nbt.getList("gs_palette").ifPresent(paletteTag -> {
+      nbt.getLongArray("gs_pos").ifPresent(posArr -> {
+        nbt.getIntArray("gs_idx").ifPresent(idxArr -> {
+          List<CrateSlotComponent> palette = new ArrayList<>();
+          for (int i = 0; i < paletteTag.size(); i++) {
+            final var context = provider != null ? provider.createSerializationContext(NbtOps.INSTANCE) : NbtOps.INSTANCE;
+            CrateSlotComponent.CODEC.parse(context, paletteTag.get(i)).result().ifPresent(palette::add);
+          }
+
+          for (int i = 0; i < posArr.length && i < idxArr.length; i++) {
+            if (idxArr[i] >= 0 && idxArr[i] < palette.size()) {
+              manager.globalStorage.put(BlockPos.of(posArr[i]), palette.get(idxArr[i]));
+            }
+          }
+        });
+      });
+    });
+
+    return manager;
+  }
+
+  public CompoundTag saveNbt(CompoundTag nbt, HolderLookup.Provider provider) {
+    // Save blockToNetwork
+    long[] posArr = new long[blockToNetwork.size()];
+    long[] uuidArr = new long[blockToNetwork.size() * 2];
+    int i = 0;
+    for (Map.Entry<BlockPos, UUID> entry : blockToNetwork.entrySet()) {
+      posArr[i] = entry.getKey().asLong();
+      uuidArr[i * 2] = entry.getValue().getMostSignificantBits();
+      uuidArr[i * 2 + 1] = entry.getValue().getLeastSignificantBits();
+      i++;
+    }
+    nbt.putLongArray("btn_pos", posArr);
+    nbt.putLongArray("btn_uuid", uuidArr);
+
+    // Save networks
+    CompoundTag networksTag = new CompoundTag();
+    for (Map.Entry<UUID, CrateNetwork> entry : networks.entrySet()) {
+      CompoundTag nTag = new CompoundTag();
+      CompoundTag nodesTag = new CompoundTag();
+      for (Map.Entry<String, Set<BlockPos>> nodesEntry : entry.getValue().nodes.entrySet()) {
+        long[] nodesArr = new long[nodesEntry.getValue().size()];
+        int j = 0;
+        for (BlockPos pos : nodesEntry.getValue()) nodesArr[j++] = pos.asLong();
+        nodesTag.putLongArray(nodesEntry.getKey(), nodesArr);
+      }
+      nTag.put("nodes", nodesTag);
+      networksTag.put(entry.getKey().toString(), nTag);
+    }
+    nbt.put("networks", networksTag);
+
+    // Save paletted globalStorage
+    List<CrateSlotComponent> palette = new ArrayList<>();
+    Map<CrateSlotComponent, Integer> componentToIdx = new HashMap<>();
+    long[] gsPosArr = new long[globalStorage.size()];
+    int[] gsIdxArr = new int[globalStorage.size()];
+    int k = 0;
+    for (Map.Entry<BlockPos, CrateSlotComponent> entry : globalStorage.entrySet()) {
+      gsPosArr[k] = entry.getKey().asLong();
+      gsIdxArr[k] = componentToIdx.computeIfAbsent(entry.getValue(), c -> {
+        palette.add(c);
+        return palette.size() - 1;
+      });
+      k++;
+    }
+
+    ListTag paletteTag = new ListTag();
+    for (CrateSlotComponent component : palette) {
+      final var context = provider != null ? provider.createSerializationContext(NbtOps.INSTANCE) : NbtOps.INSTANCE;
+      CrateSlotComponent.CODEC.encodeStart(context, component).result().ifPresent(paletteTag::add);
+    }
+
+    nbt.put("gs_palette", paletteTag);
+    nbt.putLongArray("gs_pos", gsPosArr);
+    nbt.putIntArray("gs_idx", gsIdxArr);
+
+    return nbt;
   }
 
   public boolean isRegistered(BlockPos pos) {
@@ -111,7 +231,7 @@ public class CrateNetworkManager extends SavedData {
 
     CrateNetwork network = networks.computeIfAbsent(networkId, CrateNetwork::new);
     blockToNetwork.put(pos, networkId);
-    network.nodes.computeIfAbsent(type, k -> new HashSet<>()).add(pos);
+    network.nodes.computeIfAbsent(type, k -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(pos);
 
     setDirty();
     notifyStations(level, networkId);
@@ -145,7 +265,7 @@ public class CrateNetworkManager extends SavedData {
     source.nodes.forEach((type, posSet) -> {
       for (BlockPos pos : posSet) {
         blockToNetwork.put(pos, targetId);
-        target.nodes.computeIfAbsent(type, k -> new HashSet<>()).add(pos);
+        target.nodes.computeIfAbsent(type, k -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(pos);
       }
     });
   }
@@ -173,7 +293,7 @@ public class CrateNetworkManager extends SavedData {
 
         for (Map.Entry<String, Set<BlockPos>> entry : oldNetwork.nodes.entrySet()) {
           if (entry.getValue().contains(current)) {
-            newNetwork.nodes.computeIfAbsent(entry.getKey(), k -> new HashSet<>()).add(current);
+            newNetwork.nodes.computeIfAbsent(entry.getKey(), k -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(current);
             break;
           }
         }
@@ -220,41 +340,6 @@ public class CrateNetworkManager extends SavedData {
       }
     }
   }
-
-
-  public static class CrateNetwork {
-    public final UUID id;
-    public final Map<String, Set<BlockPos>> nodes = new HashMap<>();
-
-    public CrateNetwork(UUID id) {
-      this.id = id;
-    }
-
-    public Set<BlockPos> crates() {
-      return nodes.getOrDefault("crate", Set.of());
-    }
-
-    public Set<BlockPos> stations() {
-      return nodes.getOrDefault("station", Set.of());
-    }
-
-    public Set<BlockPos> connectors() {
-      return nodes.getOrDefault("connector", Set.of());
-    }
-
-    public boolean contains(BlockPos pos) {
-      for (Set<BlockPos> set : nodes.values()) {
-        if (set.contains(pos)) return true;
-      }
-      return false;
-    }
-
-    public boolean isEmpty() {
-      if (nodes.isEmpty()) return true;
-      for (Set<BlockPos> set : nodes.values()) {
-        if (!set.isEmpty()) return false;
-      }
-      return true;
-    }
-  }
 }
+
+

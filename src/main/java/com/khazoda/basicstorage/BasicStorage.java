@@ -3,7 +3,9 @@ package com.khazoda.basicstorage;
 import com.khazoda.basicstorage.config.ConfigSyncPayload;
 import com.khazoda.basicstorage.packet.StationBeamPayload;
 import com.khazoda.basicstorage.registry.*;
+import com.khazoda.basicstorage.storage.CrateNetworkManager;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
 import net.fabricmc.fabric.api.item.v1.ComponentTooltipAppenderRegistry;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
@@ -29,6 +31,10 @@ public class BasicStorage implements ModInitializer {
       boolean serverCanBreakIfFull = BasicStorageConfig.getInstance().canBreakIfFull();
 
       ServerPlayNetworking.send(handler.getPlayer(), new ConfigSyncPayload(serverBreakWithAxeOnly, serverCanBreakIfFull));
+    });
+
+    ServerWorldEvents.UNLOAD.register((server, world) -> {
+      CrateNetworkManager.clearCache(world);
     });
     BasicStorageConfig.getInstance().load();
     Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, Identifier.parse(Constants.NAMESPACE), BW_ITEMGROUP);
