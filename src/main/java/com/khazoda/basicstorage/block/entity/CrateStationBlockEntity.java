@@ -73,6 +73,12 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
     tickCounter++;
     if (tickCounter >= currentDistributionInterval) {
       tickCounter = 0;
+
+      // If station is redstone powered, prevent distribution
+      if (this.level != null && this.level.hasNeighborSignal(this.worldPosition)) {
+        return;
+      }
+
       /*
        *  Randomize next interval between 3 and 6 seconds (60-120 ticks)
        *  fallback to 5 seconds to naturally desynchronize station distributions
@@ -134,6 +140,9 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
 
     if (changed) {
       setChanged();
+      if (this.level != null) {
+        this.level.updateNeighbourForOutputSignal(this.worldPosition, this.getBlockState().getBlock());
+      }
     }
   }
 
@@ -324,7 +333,14 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
 
   @Override
   public ItemStack removeItem(int slot, int amount) {
-    return ContainerHelper.removeItem(stationBuffer, slot, amount);
+    ItemStack stack = ContainerHelper.removeItem(stationBuffer, slot, amount);
+    if (!stack.isEmpty()) {
+      setChanged();
+      if (this.level != null) {
+        this.level.updateNeighbourForOutputSignal(this.worldPosition, this.getBlockState().getBlock());
+      }
+    }
+    return stack;
   }
 
   @Override
@@ -339,6 +355,9 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
       stack.setCount(getMaxStackSize());
     }
     setChanged();
+    if (this.level != null) {
+      this.level.updateNeighbourForOutputSignal(this.worldPosition, this.getBlockState().getBlock());
+    }
   }
 
   @Override
