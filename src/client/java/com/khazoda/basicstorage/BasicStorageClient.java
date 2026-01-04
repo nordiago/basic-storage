@@ -2,6 +2,7 @@ package com.khazoda.basicstorage;
 
 import com.khazoda.basicstorage.config.ConfigSyncPayload;
 import com.khazoda.basicstorage.particle.TwinkleParticle;
+import com.khazoda.basicstorage.particle.VoidyParticle;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.registry.ParticleRegistry;
 import com.khazoda.basicstorage.renderer.CrateItemSpecialRenderer;
@@ -45,5 +46,6 @@ public class BasicStorageClient implements ClientModInitializer {
 
     /* Register custom particles */
     ParticleFactoryRegistry.getInstance().register(ParticleRegistry.TWINKLE, TwinkleParticle.Factory::new);
+    ParticleFactoryRegistry.getInstance().register(ParticleRegistry.VOIDY, VoidyParticle.Factory::new);
   }
 }

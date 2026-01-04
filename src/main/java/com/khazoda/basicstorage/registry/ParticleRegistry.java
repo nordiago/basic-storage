@@ -9,8 +9,10 @@ import net.minecraft.core.registries.BuiltInRegistries;
 public class ParticleRegistry {
 
   public static final SimpleParticleType TWINKLE = FabricParticleTypes.simple();
+  public static final SimpleParticleType VOIDY = FabricParticleTypes.simple();
 
   public static void init() {
     Registry.register(BuiltInRegistries.PARTICLE_TYPE, Constants.ID("twinkle"), TWINKLE);
+    Registry.register(BuiltInRegistries.PARTICLE_TYPE, Constants.ID("voidy"), VOIDY);
   }
 }

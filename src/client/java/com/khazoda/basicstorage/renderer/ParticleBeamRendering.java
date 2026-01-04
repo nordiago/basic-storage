@@ -176,22 +176,14 @@ public class ParticleBeamRendering {
 
   private static class Beam {
     final ClientLevel level;
-    final Vec3 start, end, p1, p2;
     final BlockPos targetPos;
     final int duration;
     final int totalSteps;
     int age;
-    final double frequency;
-    final double amplitude;
-    final double phase;
-    final boolean isSpiral;
-    final Vec3 right, upVec;
     final Vec3[] beamVectors;
 
     public Beam(ClientLevel level, Vec3 start, Vec3 end, int duration, BlockPos targetPos) {
       this.level = level;
-      this.start = start;
-      this.end = end;
       this.duration = duration;
       this.targetPos = targetPos;
       this.age = 0;
@@ -201,21 +193,20 @@ public class ParticleBeamRendering {
       this.totalSteps = (int) (dist * 10);
 
       double arcScale = dist * 0.5;
-      this.p1 = start.add(diff.scale(0.33)).add((Math.random() - 0.5) * arcScale, (Math.random() * arcScale), (Math.random() - 0.5) * arcScale);
-      this.p2 = start.add(diff.scale(0.66)).add((Math.random() - 0.5) * arcScale, (Math.random() * arcScale), (Math.random() - 0.5) * arcScale);
+      Vec3 p1 = start.add(diff.scale(0.33)).add((Math.random() - 0.5) * arcScale, (Math.random() * arcScale), (Math.random() - 0.5) * arcScale);
+      Vec3 p2 = start.add(diff.scale(0.66)).add((Math.random() - 0.5) * arcScale, (Math.random() * arcScale), (Math.random() - 0.5) * arcScale);
 
-      /* Energy Arc Properties */
-      this.frequency = 2.0 + Math.random() * 3.0;
-      this.amplitude = 0.3 + Math.random() * 0.5;
-      this.phase = Math.random() * Math.PI * 2;
-      this.isSpiral = Math.random() > 0.5;
+      double frequency = 2.0 + Math.random() * 3.0;
+      double amplitude = 0.3 + Math.random() * 0.5;
+      double phase = Math.random() * Math.PI * 2;
+      boolean isSpiral = Math.random() > 0.5;
 
       /* Calculate perpendicular vectors for offset */
       Vec3 dir = diff.normalize();
       Vec3 approxUp = new Vec3(0, 1, 0);
       if (Math.abs(dir.dot(approxUp)) > 0.9) approxUp = new Vec3(1, 0, 0); // Handle vertical beams
-      this.right = dir.cross(approxUp).normalize();
-      this.upVec = right.cross(dir).normalize();
+      Vec3 right = dir.cross(approxUp).normalize();
+      Vec3 upVec = right.cross(dir).normalize();
 
       /* Pre-calculate beam paths */
       this.beamVectors = new Vec3[totalSteps];
@@ -272,8 +263,11 @@ public class ParticleBeamRendering {
 
       for (int i = startStep; i < endStep; i++) {
         Vec3 pos = beamVectors[i];
-        if (Math.random() < 0.30) {
+        if (Math.random() < 0.05) {
           level.addParticle(ParticleRegistry.TWINKLE, pos.x, pos.y, pos.z, 0.0, 0.0, 0.0);
+        }
+        if (Math.random() < 0.85) {
+          level.addParticle(ParticleRegistry.VOIDY, pos.x, pos.y, pos.z, 0.0, 0.0, 0.0);
         }
       }
     }
