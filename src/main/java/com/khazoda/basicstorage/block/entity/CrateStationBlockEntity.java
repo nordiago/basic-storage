@@ -2,7 +2,6 @@ package com.khazoda.basicstorage.block.entity;
 
 import com.khazoda.basicstorage.packet.StationBeamPayload;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
-import com.khazoda.basicstorage.registry.SoundRegistry;
 import com.khazoda.basicstorage.storage.CrateNetworkManager;
 import com.khazoda.basicstorage.storage.CrateNetwork;
 import com.khazoda.basicstorage.storage.NetworkNode;
@@ -20,7 +19,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.WorldlyContainer;
@@ -52,10 +50,11 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
   private int lastStationBufferCount = -1;
   private int itemsDistributedInTick = 0;
   private int tickCounter = 0;
-  private int currentDistributionInterval = 100;
+  private int currentDistributionInterval;
 
   public CrateStationBlockEntity(BlockPos pos, BlockState state) {
     super(BlockEntityRegistry.CRATE_STATION_BLOCK_ENTITY, pos, state);
+    this.currentDistributionInterval = 60 + new Random().nextInt(61);
   }
 
   public static void tick(Level world, BlockPos pos, BlockState state, CrateStationBlockEntity be) {
@@ -129,7 +128,6 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
       for (ServerPlayer player : PlayerLookup.tracking(this)) {
         ServerPlayNetworking.send(player, payload);
       }
-      level.playSound(null, worldPosition, SoundRegistry.WHOOSH, SoundSource.BLOCKS, 0.7f, 0.9f + level.random.nextFloat() * 0.2f);
     } else if (!stationBuffer.isEmpty() && !changed && level instanceof ServerLevel serverLevel && isClogged()) {
       serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.SMOKE, worldPosition.getX() + 0.5, worldPosition.getY() + 1.1, worldPosition.getZ() + 0.5, 5, 0.1, 0.1, 0.1, 0.05);
     }

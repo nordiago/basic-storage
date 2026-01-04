@@ -7,6 +7,9 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.multiplayer.ClientLevel;
+import com.khazoda.basicstorage.registry.SoundRegistry;
+import com.khazoda.basicstorage.sound.WhooshSoundInstance;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 
@@ -47,8 +50,11 @@ public class ParticleBeamRendering {
       if (level == null) return;
 
       BlockPos origin = payload.origin();
-      for (StationBeamPayload.Target target : payload.targets()) {
-        createBeam(level, origin, target.pos(), target.amount());
+      List<StationBeamPayload.Target> targets = payload.targets();
+      for (int i = 0; i < targets.size(); i++) {
+        StationBeamPayload.Target target = targets.get(i);
+        int delay = targets.size() > 1 ? (i * 20) / (targets.size() - 1) : 0;
+        createBeam(level, origin, target.pos(), target.amount(), delay, i == 0);
       }
     }));
 
@@ -160,8 +166,8 @@ public class ParticleBeamRendering {
     });
   }
 
-  private void createBeam(ClientLevel level, BlockPos from, BlockPos to, int amount) {
-    Beam beam = new Beam(level, Vec3.atCenterOf(from), Vec3.atCenterOf(to), BEAM_DURATION_TICKS, to);
+  private void createBeam(ClientLevel level, BlockPos from, BlockPos to, int amount, int delay, boolean playSound) {
+    Beam beam = new Beam(level, Vec3.atCenterOf(from), Vec3.atCenterOf(to), BEAM_DURATION_TICKS, to, delay);
 
     /* Snapshot current count to prevent visual jumps until beam hits */
     int currentVisibleCount = 0;
@@ -170,8 +176,12 @@ public class ParticleBeamRendering {
     }
 
     rollingItemCounts.putIfAbsent(to, (float) currentVisibleCount);
-    activeBeamSnapshots.computeIfAbsent(to, k -> new ArrayList<>()).add(new ActiveBeam(BEAM_DURATION_TICKS, amount));
+    activeBeamSnapshots.computeIfAbsent(to, k -> new ArrayList<>()).add(new ActiveBeam(BEAM_DURATION_TICKS + delay, amount));
     activeBeams.add(beam);
+
+    if (playSound) {
+      Minecraft.getInstance().getSoundManager().play(new WhooshSoundInstance(SoundRegistry.WHOOSH, beam.beamVectors, BEAM_DURATION_TICKS, delay, level.random));
+    }
   }
 
   private static class Beam {
@@ -179,13 +189,15 @@ public class ParticleBeamRendering {
     final BlockPos targetPos;
     final int duration;
     final int totalSteps;
+    final int delay;
     int age;
     final Vec3[] beamVectors;
 
-    public Beam(ClientLevel level, Vec3 start, Vec3 end, int duration, BlockPos targetPos) {
+    public Beam(ClientLevel level, Vec3 start, Vec3 end, int duration, BlockPos targetPos, int delay) {
       this.level = level;
       this.duration = duration;
       this.targetPos = targetPos;
+      this.delay = delay;
       this.age = 0;
 
       Vec3 diff = end.subtract(start);
@@ -240,13 +252,19 @@ public class ParticleBeamRendering {
     }
 
     public boolean tick() {
-      double prevProgress = (double) age / duration;
+      if (age < delay) {
+        age++;
+        return false;
+      }
+
+      int adjustedAge = age - delay;
+      double prevProgress = (double) adjustedAge / duration;
       age++;
-      double currentProgress = (double) age / duration;
+      double currentProgress = (double) (age - delay) / duration;
 
       spawnParticles(prevProgress, currentProgress);
 
-      if (age >= duration) {
+      if (adjustedAge >= duration) {
         /* Trigger highlight once beam hits crate */
         highlightedCrates.put(targetPos, HIGHLIGHT_DURATION_TICKS);
         return true;
