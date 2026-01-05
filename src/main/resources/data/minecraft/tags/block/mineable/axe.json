@@ -3,6 +3,7 @@
   "values": [
     "basicstorage:crate",
     "basicstorage:crate_station",
+    "basicstorage:crate_station_frame",
     "basicstorage:crate_connector"
   ]
 }

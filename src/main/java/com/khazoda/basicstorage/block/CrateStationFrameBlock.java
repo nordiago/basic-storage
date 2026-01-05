@@ -1,7 +1,9 @@
 package com.khazoda.basicstorage.block;
 
 import com.khazoda.basicstorage.registry.BlockRegistry;
+import com.khazoda.basicstorage.registry.ParticleRegistry;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -39,6 +41,7 @@ public class CrateStationFrameBlock extends Block {
     protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (stack.is(Items.ENDER_EYE)) {
             if (!world.isClientSide()) {
+                ((ServerLevel)world).sendParticles(ParticleRegistry.VOIDY, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 20, 0.2, 0.2, 0.2, 0.05);
                 world.setBlock(pos, BlockRegistry.CRATE_STATION_BLOCK.defaultBlockState(), 3);
                 world.playSound(null, pos, SoundEvents.END_PORTAL_FRAME_FILL, SoundSource.BLOCKS, 1.0f, 1.0f);
                 if (!player.getAbilities().instabuild) {

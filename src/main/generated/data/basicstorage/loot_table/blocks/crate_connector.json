@@ -3,20 +3,15 @@
   "pools": [
     {
       "bonus_rolls": 0.0,
-      "entries": [
+      "conditions": [
         {
-          "type": "minecraft:item",
-          "name": "basicstorage:crate_station_frame"
+          "condition": "minecraft:survives_explosion"
         }
       ],
-      "rolls": 1.0
-    },
-    {
-      "bonus_rolls": 0.0,
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "minecraft:ender_eye"
+          "name": "basicstorage:crate_connector"
         }
       ],
       "rolls": 1.0

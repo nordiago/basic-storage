@@ -39,7 +39,7 @@
     "recipes": [
       "basicstorage:crate",
       "basicstorage:crate_alt",
-      "basicstorage:crate_station",
+      "basicstorage:crate_station_frame",
       "basicstorage:crate_connector",
       "basicstorage:crate_connector_alt"
     ]
