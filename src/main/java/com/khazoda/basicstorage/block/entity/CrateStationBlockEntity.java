@@ -1,5 +1,6 @@
 package com.khazoda.basicstorage.block.entity;
 
+import com.khazoda.basicstorage.block.CrateStationBlock;
 import com.khazoda.basicstorage.packet.StationBeamPayload;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.storage.CrateNetwork;
@@ -77,7 +78,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
       tickCounter = 0;
 
       // If station is redstone powered, prevent distribution
-      if (this.level != null && this.level.hasNeighborSignal(this.worldPosition)) {
+      if (this.getBlockState().getValue(CrateStationBlock.POWERED)) {
         return;
       }
 

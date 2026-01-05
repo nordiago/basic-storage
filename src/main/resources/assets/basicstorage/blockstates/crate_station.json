@@ -1,21 +1,16 @@
 {
   "variants": {
-    "": [
-      {
-        "model": "basicstorage:block/crate_station"
-      },
-      {
-        "model": "basicstorage:block/crate_station",
-        "y": 90
-      },
-      {
-        "model": "basicstorage:block/crate_station",
-        "y": 180
-      },
-      {
-        "model": "basicstorage:block/crate_station",
-        "y": 270
-      }
+    "powered=false": [
+      { "model": "basicstorage:block/crate_station" },
+      { "model": "basicstorage:block/crate_station", "y": 90 },
+      { "model": "basicstorage:block/crate_station", "y": 180 },
+      { "model": "basicstorage:block/crate_station", "y": 270 }
+    ],
+    "powered=true": [
+      { "model": "basicstorage:block/crate_station_disabled" },
+      { "model": "basicstorage:block/crate_station_disabled", "y": 90 },
+      { "model": "basicstorage:block/crate_station_disabled", "y": 180 },
+      { "model": "basicstorage:block/crate_station_disabled", "y": 270 }
     ]
   }
 }

@@ -16,11 +16,13 @@ import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stats;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -31,16 +33,21 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.NoteBlockInstrument;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
+import net.minecraft.world.level.redstone.Orientation;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
@@ -63,9 +70,11 @@ public class CrateStationBlock extends BaseEntityBlock {
 
   public static final MapCodec<CrateStationBlock> CODEC = simpleCodec(CrateStationBlock::new);
   public static final Properties defaultSettings = Properties.of().sound(SoundType.WOOD).strength(3.5f).pushReaction(PushReaction.BLOCK).instrument(NoteBlockInstrument.BASS).mapColor(MapColor.WOOD);
+  public static final BooleanProperty POWERED = BlockStateProperties.POWERED;
 
   public CrateStationBlock(Properties settings) {
     super(settings);
+    this.registerDefaultState(this.stateDefinition.any().setValue(POWERED, false));
   }
 
   public CrateStationBlock() {
@@ -214,7 +223,43 @@ public class CrateStationBlock extends BaseEntityBlock {
 
   @Override
   public BlockState getStateForPlacement(BlockPlaceContext ctx) {
-    return this.defaultBlockState();
+    return this.defaultBlockState().setValue(POWERED, ctx.getLevel().hasNeighborSignal(ctx.getClickedPos()));
+  }
+
+  @Override
+  protected void neighborChanged(BlockState state, Level world, BlockPos pos, Block sourceBlock, @Nullable Orientation wireOrientation, boolean notify) {
+    if (world.isClientSide()) return;
+    boolean isPowered = world.hasNeighborSignal(pos);
+    if (state.getValue(POWERED) != isPowered) {
+      world.setBlock(pos, state.setValue(POWERED, isPowered), 3);
+    }
+  }
+
+  @Override
+  protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+    builder.add(POWERED);
+  }
+
+  @Override
+  public void animateTick(BlockState state, Level world, BlockPos pos, RandomSource random) {
+    if (state.getValue(POWERED)) {
+      double x = pos.getX();
+      double y = pos.getY();
+      double z = pos.getZ();
+
+      if (random.nextInt(5) == 0) {
+        world.addParticle(DustParticleOptions.REDSTONE, x + 0.1, y + 1.0, z + 0.1, 0.0, 0.0, 0.0);
+      }
+      if (random.nextInt(5) == 0) {
+        world.addParticle(DustParticleOptions.REDSTONE, x + 0.9, y + 1.0, z + 0.1, 0.0, 0.0, 0.0);
+      }
+      if (random.nextInt(5) == 0) {
+        world.addParticle(DustParticleOptions.REDSTONE, x + 0.1, y + 1.0, z + 0.9, 0.0, 0.0, 0.0);
+      }
+      if (random.nextInt(5) == 0) {
+        world.addParticle(DustParticleOptions.REDSTONE, x + 0.9, y + 1.0, z + 0.9, 0.0, 0.0, 0.0);
+      }
+    }
   }
 
   @Override

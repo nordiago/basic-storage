@@ -1,7 +1,10 @@
 {
   "variants": {
-    "": {
-      "model": "basicstorage:block/crate_station_frame"
-    }
+    "": [
+      { "model": "basicstorage:block/crate_station_frame" },
+      { "model": "basicstorage:block/crate_station_frame", "y": 90 },
+      { "model": "basicstorage:block/crate_station_frame", "y": 180 },
+      { "model": "basicstorage:block/crate_station_frame", "y": 270 }
+    ]
   }
 }
