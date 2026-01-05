@@ -83,7 +83,7 @@ public class CrateNetwork {
       }
     }
 
-    if (newVariant != null && !newVariant.isBlank()) {
+    if (newVariant != null) {
       itemIndex.computeIfAbsent(newVariant, k -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(pos);
     }
   }
