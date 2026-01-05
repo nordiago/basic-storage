@@ -60,8 +60,8 @@ public class BasicStorage implements ModInitializer {
 
     ComponentTooltipAppenderRegistry.addFirst(DataComponentRegistry.CRATE_CONTENTS);
 
-    ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.REDSTONE_BLOCKS).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_STATION_BLOCK, BlockRegistry.CRATE_CONNECTOR_BLOCK));
-    ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.FUNCTIONAL_BLOCKS).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_STATION_BLOCK, BlockRegistry.CRATE_CONNECTOR_BLOCK));
+    ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.REDSTONE_BLOCKS).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_STATION_FRAME_BLOCK, BlockRegistry.CRATE_STATION_BLOCK, BlockRegistry.CRATE_CONNECTOR_BLOCK));
+    ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.FUNCTIONAL_BLOCKS).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_STATION_FRAME_BLOCK, BlockRegistry.CRATE_STATION_BLOCK, BlockRegistry.CRATE_CONNECTOR_BLOCK));
     Constants.LOG.info("- Basic Storage Loaded -");
   }
 }

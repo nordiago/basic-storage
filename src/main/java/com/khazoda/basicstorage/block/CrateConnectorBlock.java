@@ -71,11 +71,13 @@ public class CrateConnectorBlock extends Block {
       var network = manager.getNetworkFor(pos);
       if (network != null) {
         player.displayClientMessage(
-            Component.translatable("message.basicstorage.connector.info.crates", network.crates().size()).withColor(0xFFDD99)
-                .append(Component.literal(" | ")).withColor(0xffffff)
-                .append(Component.translatable("message.basicstorage.connector.info.stations", network.stations().size()).withColor(0xddff99))
-                .append(Component.literal(" | ")).withColor(0xffffff)
-                .append(Component.translatable("message.basicstorage.connector.info.connectors", network.connectors().size()).withColor(0xffffff))
+            Component.literal("• ").withColor(0xffffff)
+                .append(Component.translatable("message.basicstorage.connector.info.crates", network.crates().size()).withColor(0xFFDD99))
+                .append(Component.literal(" | ").withColor(0xffffff))
+                .append(Component.translatable("message.basicstorage.connector.info.stations", network.stations().size()).withColor(0xDDFF99))
+                .append(Component.literal(" | ").withColor(0xffffff))
+                .append(Component.translatable("message.basicstorage.connector.info.connectors", network.connectors().size()).withColor(0xBBCCFF))
+                .append(Component.literal(" •").withColor(0xffffff))
             , true);
       }
     }
