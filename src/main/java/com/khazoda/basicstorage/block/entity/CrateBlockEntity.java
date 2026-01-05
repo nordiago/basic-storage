@@ -103,7 +103,7 @@ public class CrateBlockEntity extends BlockEntity implements ItemOwner {
    */
   @Override
   protected void collectImplicitComponents(DataComponentMap.Builder componentMapBuilder) {
-    if (this.storage.isBlank()) return;
+    if (this.storage.isBlank() || this.storage.getAmount() <= 0) return;
     componentMapBuilder.set(DataComponentRegistry.CRATE_CONTENTS, new CrateSlotComponent(this.storage.getResource(), (int) this.storage.getAmount()));
   }
 
