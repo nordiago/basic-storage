@@ -3,14 +3,16 @@ package com.khazoda.basicstorage.renderer;
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.packet.StationBeamPayload;
 import com.khazoda.basicstorage.registry.ParticleRegistry;
+import com.khazoda.basicstorage.registry.SoundRegistry;
+import com.khazoda.basicstorage.sound.WhooshSoundInstance;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.multiplayer.ClientLevel;
-import com.khazoda.basicstorage.registry.SoundRegistry;
-import com.khazoda.basicstorage.sound.WhooshSoundInstance;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
@@ -167,7 +169,7 @@ public class ParticleBeamRendering {
   }
 
   private void createBeam(ClientLevel level, BlockPos from, BlockPos to, int amount, int delay, boolean playSound) {
-    Beam beam = new Beam(level, Vec3.atCenterOf(from), Vec3.atCenterOf(to), BEAM_DURATION_TICKS, to, delay);
+    Beam beam = new Beam(level, Vec3.atCenterOf(from), Vec3.atCenterOf(to), BEAM_DURATION_TICKS, to, delay, from);
 
     /* Snapshot current count to prevent visual jumps until beam hits */
     int currentVisibleCount = 0;
@@ -192,12 +194,14 @@ public class ParticleBeamRendering {
     final int delay;
     int age;
     final Vec3[] beamVectors;
+    final BlockPos originPos;
 
-    public Beam(ClientLevel level, Vec3 start, Vec3 end, int duration, BlockPos targetPos, int delay) {
+    public Beam(ClientLevel level, Vec3 start, Vec3 end, int duration, BlockPos targetPos, int delay, BlockPos originPos) {
       this.level = level;
-      this.duration = duration;
       this.targetPos = targetPos;
       this.delay = delay;
+      this.originPos = originPos;
+      this.duration = duration;
       this.age = 0;
 
       Vec3 diff = end.subtract(start);
@@ -252,6 +256,10 @@ public class ParticleBeamRendering {
     }
 
     public boolean tick() {
+      if (age == delay) {
+        level.playLocalSound(originPos.getX() + 0.5, originPos.getY() + 0.5, originPos.getZ() + 0.5, SoundEvents.ENDER_PEARL_THROW, SoundSource.BLOCKS, 0.05f, 1.5f + level.random.nextFloat() * 0.5f, false);
+      }
+
       if (age < delay) {
         age++;
         return false;
