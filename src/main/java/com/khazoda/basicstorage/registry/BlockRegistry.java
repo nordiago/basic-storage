@@ -3,6 +3,7 @@ package com.khazoda.basicstorage.registry;
 import com.khazoda.basicstorage.block.CrateBlock;
 import com.khazoda.basicstorage.block.CrateConnectorBlock;
 import com.khazoda.basicstorage.block.CrateStationBlock;
+import com.khazoda.basicstorage.block.CrateStationFrameBlock;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -22,6 +23,7 @@ public class BlockRegistry {
 
   public static final Block CRATE_BLOCK = register("crate", CrateBlock::new, CrateBlock.defaultSettings);
   public static final Block CRATE_STATION_BLOCK = register("crate_station", CrateStationBlock::new, CrateStationBlock.defaultSettings);
+  public static final Block CRATE_STATION_FRAME_BLOCK = register("crate_station_frame", CrateStationFrameBlock::new, CrateStationFrameBlock.defaultSettings);
   public static final Block CRATE_CONNECTOR_BLOCK = register("crate_connector", CrateConnectorBlock::new, CrateConnectorBlock.defaultSettings);
 
   public static void init() {

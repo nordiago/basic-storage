@@ -3,6 +3,7 @@
   "message.basicstorage.crate.empty": "Empty",
   "basicstorage.itemGroup": "Basic Storage",
   "block.basicstorage.crate_station": "Crate Station",
+  "block.basicstorage.crate_station_frame": "Crate Station Frame",
   "message.basicstorage.station.connected_valid_crate_count": "• %d Valid",
   "message.basicstorage.station.connected_empty_crate_count": "%d Empty •",
   "message.basicstorage.station.throughput": "• IN %.1f/s | %.1f/s OUT •",

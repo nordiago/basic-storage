@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "basicstorage:block/crate_station_frame"
+    }
+  }
+}

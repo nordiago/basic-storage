@@ -5,6 +5,7 @@ import com.khazoda.basicstorage.registry.DataComponentRegistry;
 import net.fabricmc.fabric.api.datagen.v1.FabricDataOutput;
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricBlockLootTableProvider;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.storage.loot.LootPool;
 import net.minecraft.world.level.storage.loot.LootTable;
@@ -24,7 +25,11 @@ public class CrateLootTableProvider extends FabricBlockLootTableProvider {
   @Override
   public void generate() {
     add(BlockRegistry.CRATE_BLOCK, this::drawerDrops);
-    dropSelf(BlockRegistry.CRATE_STATION_BLOCK);
+    add(BlockRegistry.CRATE_STATION_BLOCK, block -> LootTable.lootTable()
+        .withPool(LootPool.lootPool().setRolls(ConstantValue.exactly(1.0f)).add(LootItem.lootTableItem(BlockRegistry.CRATE_STATION_FRAME_BLOCK)))
+        .withPool(LootPool.lootPool().setRolls(ConstantValue.exactly(1.0f)).add(LootItem.lootTableItem(Items.ENDER_EYE))));
+    dropSelf(BlockRegistry.CRATE_STATION_FRAME_BLOCK);
+    dropSelf(BlockRegistry.CRATE_CONNECTOR_BLOCK);
   }
 
   private LootTable.Builder drawerDrops(Block drop) {
