@@ -34,9 +34,13 @@ import java.util.*;
 
 public class CrateStationBlockEntity extends BlockEntity implements NetworkNode, WorldlyContainer {
 
-  private final Map<ItemVariant, List<BlockPos>> crateRegistry = new HashMap<>();
-  private final List<BlockPos> connectedValidCrates = new ArrayList<>();
-  private final List<BlockPos> connectedEmptyCrates = new ArrayList<>();
+  private static final int MAX_RECENT_LOOKUPS = 8;
+  private final LinkedHashMap<ItemVariant, List<BlockPos>> recentLookups = new LinkedHashMap<>(MAX_RECENT_LOOKUPS, 0.75f, true) {
+    @Override
+    protected boolean removeEldestEntry(Map.Entry<ItemVariant, List<BlockPos>> eldest) {
+      return size() > MAX_RECENT_LOOKUPS;
+    }
+  };
   private boolean needsCacheUpdate = true;
   private boolean hasCheckedRegistration = false;
   private boolean registeredOnServer = false;
@@ -62,7 +66,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
       be.tickThroughputTracking(serverLevel);
     }
     if (be.needsCacheUpdate) {
-      be.buildCrateCache();
+      be.recentLookups.clear();
       be.needsCacheUpdate = false;
     }
   }
@@ -98,7 +102,11 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
       if (stack.isEmpty()) continue;
 
       ItemVariant variant = ItemVariant.of(stack);
-      List<BlockPos> compatibleCrates = manager.findCratesForItem(worldPosition, variant);
+      List<BlockPos> compatibleCrates = recentLookups.get(variant);
+      if (compatibleCrates == null) {
+        compatibleCrates = manager.findCratesForItem(worldPosition, variant);
+        recentLookups.put(variant, compatibleCrates);
+      }
 
       if (!compatibleCrates.isEmpty()) {
         // Insert items into compatible crates
@@ -159,27 +167,6 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
     hasCheckedRegistration = true;
   }
 
-  private void buildCrateCache() {
-    if (level == null || level.isClientSide() || !(level instanceof ServerLevel serverLevel)) return;
-
-    crateRegistry.clear();
-    connectedValidCrates.clear();
-    connectedEmptyCrates.clear();
-
-    CrateNetworkManager manager = CrateNetworkManager.get(serverLevel);
-    CrateNetwork network = manager.getNetworkFor(worldPosition);
-    if (network == null) return;
-
-    connectedEmptyCrates.addAll(manager.findCratesForItem(worldPosition, ItemVariant.blank()));
-
-    for (ItemVariant variant : network.getIndexedVariants(manager)) {
-      if (variant.isBlank()) continue;
-      List<BlockPos> crates = manager.findCratesForItem(worldPosition, variant);
-      crateRegistry.put(variant, new ArrayList<>(crates));
-      connectedValidCrates.addAll(crates);
-    }
-    setChanged();
-  }
 
   @Override
   public void setRemoved() {
@@ -188,9 +175,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
         CrateNetworkManager.get(serverLevel).onBlockRemoved(this.level, this.worldPosition);
       }
     }
-    crateRegistry.clear();
-    connectedValidCrates.clear();
-    connectedEmptyCrates.clear();
+    recentLookups.clear();
     super.setRemoved();
   }
 
@@ -200,15 +185,21 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
   }
 
   public List<BlockPos> getConnectedValidCrates() {
-    return connectedValidCrates;
+    CrateNetworkManager manager = level instanceof ServerLevel sl ? CrateNetworkManager.get(sl) : null;
+    CrateNetwork network = manager != null ? manager.getNetworkFor(worldPosition) : null;
+    if (network == null) return List.of();
+    List<BlockPos> crates = new ArrayList<>();
+    for (ItemVariant variant : network.getIndexedVariants(manager)) {
+      if (!variant.isBlank()) {
+        crates.addAll(network.findCratesForItem(variant, worldPosition, manager));
+      }
+    }
+    return crates;
   }
 
   public List<BlockPos> getConnectedEmptyCrates() {
-    return connectedEmptyCrates;
-  }
-
-  public Map<ItemVariant, List<BlockPos>> getCrateRegistry() {
-    return crateRegistry;
+    CrateNetworkManager manager = level instanceof ServerLevel sl ? CrateNetworkManager.get(sl) : null;
+    return manager != null ? manager.findCratesForItem(worldPosition, ItemVariant.blank()) : List.of();
   }
 
   public double getInRate() {

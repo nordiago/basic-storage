@@ -161,11 +161,12 @@ public class CrateStationBlock extends BaseEntityBlock {
     int totalInserted = 0;
     ItemVariant variant = ItemVariant.of(stack);
     Level world = cdbe.getLevel();
-    if (world == null) return 0;
+    if (world == null || world.isClientSide()) return 0;
 
-    List<BlockPos> compatibleCrates = cdbe.getCrateRegistry().get(variant);
-    if (compatibleCrates != null) {
-      for (BlockPos cratePos : new ArrayList<>(compatibleCrates)) {
+    CrateNetworkManager manager = CrateNetworkManager.get((ServerLevel) world);
+    List<BlockPos> compatibleCrates = manager.findCratesForItem(cdbe.getBlockPos(), variant);
+    if (!compatibleCrates.isEmpty()) {
+      for (BlockPos cratePos : compatibleCrates) {
         BlockEntity be = world.getBlockEntity(cratePos);
         if (be instanceof CrateBlockEntity crate) {
           try (Transaction transaction = Transaction.openOuter()) {

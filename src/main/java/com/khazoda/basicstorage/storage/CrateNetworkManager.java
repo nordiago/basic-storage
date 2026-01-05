@@ -1,6 +1,7 @@
 package com.khazoda.basicstorage.storage;
 
 import com.khazoda.basicstorage.Constants;
+import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.structure.CrateSlotComponent;
 import com.mojang.datafixers.util.Pair;
@@ -32,6 +33,7 @@ public class CrateNetworkManager extends SavedData {
   private final Map<BlockPos, UUID> blockToNetwork = new ConcurrentHashMap<>();
   private final Map<UUID, CrateNetwork> networks = new ConcurrentHashMap<>();
   private final Map<BlockPos, CrateSlotComponent> globalStorage = new ConcurrentHashMap<>();
+  private final Set<UUID> pendingStationUpdates = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
 
   public CrateNetworkManager() {
@@ -102,20 +104,21 @@ public class CrateNetworkManager extends SavedData {
     });
 
     // Load paletted globalStorage
-    nbt.getList("gs_palette").ifPresent(paletteTag -> {
+    nbt.getList("gs_palette_v").ifPresent(paletteTag -> {
       nbt.getLongArray("gs_pos").ifPresent(posArr -> {
         nbt.getIntArray("gs_idx").ifPresent(idxArr -> {
-          List<CrateSlotComponent> palette = new ArrayList<>();
-          for (int i = 0; i < paletteTag.size(); i++) {
-            final var context = provider != null ? provider.createSerializationContext(NbtOps.INSTANCE) : NbtOps.INSTANCE;
-            CrateSlotComponent.CODEC.parse(context, paletteTag.get(i)).result().ifPresent(palette::add);
-          }
-
-          for (int i = 0; i < posArr.length && i < idxArr.length; i++) {
-            if (idxArr[i] >= 0 && idxArr[i] < palette.size()) {
-              manager.globalStorage.put(BlockPos.of(posArr[i]), palette.get(idxArr[i]));
+          nbt.getIntArray("gs_count").ifPresent(countArr -> {
+            List<ItemVariant> palette = new ArrayList<>();
+            for (int i = 0; i < paletteTag.size(); i++) {
+              ItemVariant.CODEC.parse(NbtOps.INSTANCE, paletteTag.get(i)).result().ifPresent(palette::add);
             }
-          }
+
+            for (int i = 0; i < posArr.length && i < idxArr.length && i < countArr.length; i++) {
+              if (idxArr[i] >= 0 && idxArr[i] < palette.size()) {
+                manager.globalStorage.put(BlockPos.of(posArr[i]), new CrateSlotComponent(palette.get(idxArr[i]), countArr[i]));
+              }
+            }
+          });
         });
       });
     });
@@ -154,29 +157,31 @@ public class CrateNetworkManager extends SavedData {
     nbt.put("networks", networksTag);
 
     // Save paletted globalStorage
-    List<CrateSlotComponent> palette = new ArrayList<>();
-    Map<CrateSlotComponent, Integer> componentToIdx = new HashMap<>();
+    List<ItemVariant> palette = new ArrayList<>();
+    Map<ItemVariant, Integer> variantToIdx = new HashMap<>();
     long[] gsPosArr = new long[globalStorage.size()];
     int[] gsIdxArr = new int[globalStorage.size()];
+    int[] gsCountArr = new int[globalStorage.size()];
     int k = 0;
     for (Map.Entry<BlockPos, CrateSlotComponent> entry : globalStorage.entrySet()) {
       gsPosArr[k] = entry.getKey().asLong();
-      gsIdxArr[k] = componentToIdx.computeIfAbsent(entry.getValue(), c -> {
-        palette.add(c);
+      gsIdxArr[k] = variantToIdx.computeIfAbsent(entry.getValue().item(), v -> {
+        palette.add(v);
         return palette.size() - 1;
       });
+      gsCountArr[k] = entry.getValue().count();
       k++;
     }
 
     ListTag paletteTag = new ListTag();
-    for (CrateSlotComponent component : palette) {
-      final var context = provider != null ? provider.createSerializationContext(NbtOps.INSTANCE) : NbtOps.INSTANCE;
-      CrateSlotComponent.CODEC.encodeStart(context, component).result().ifPresent(paletteTag::add);
+    for (ItemVariant variant : palette) {
+      ItemVariant.CODEC.encodeStart(NbtOps.INSTANCE, variant).result().ifPresent(paletteTag::add);
     }
 
-    nbt.put("gs_palette", paletteTag);
+    nbt.put("gs_palette_v", paletteTag);
     nbt.putLongArray("gs_pos", gsPosArr);
     nbt.putIntArray("gs_idx", gsIdxArr);
+    nbt.putIntArray("gs_count", gsCountArr);
 
     return nbt;
   }
@@ -254,11 +259,29 @@ public class CrateNetworkManager extends SavedData {
 
     if (network != null && network.isEmpty()) {
       networks.remove(networkId);
-    } else {
-      rebuildNetwork(level, networkId, pos);
+    } else if (network != null) {
+      // Only rebuild network if split is likely
+      if (shouldCheckForSplit(level, pos, network)) {
+        rebuildNetwork(level, networkId, pos);
+      }
     }
 
     setDirty();
+  }
+
+  private boolean shouldCheckForSplit(Level level, BlockPos pos, CrateNetwork network) {
+    int neighbors = 0;
+    List<BlockPos> adjacent = new ArrayList<>();
+    for (Direction dir : Direction.values()) {
+      BlockPos neighbor = pos.relative(dir);
+      if (blockToNetwork.get(neighbor) != null) {
+        neighbors++;
+        adjacent.add(neighbor);
+      }
+    }
+
+    // No split possible if 1 or less
+    return neighbors > 1;
   }
 
   private void mergeNetworks(UUID targetId, UUID sourceId) {
@@ -317,15 +340,16 @@ public class CrateNetworkManager extends SavedData {
 
   public void updateStorage(Level level, BlockPos pos, CrateSlotComponent component) {
     if (level.isClientSide()) return;
-    globalStorage.put(pos, component);
+
+    CrateSlotComponent old = globalStorage.put(pos, component);
     setDirty();
 
     UUID networkId = blockToNetwork.get(pos);
     if (networkId != null) {
       CrateNetwork network = networks.get(networkId);
       if (network != null) {
-        // Invalidate the item index since contents changed
-        network.invalidateIndex();
+        // Incremental index update when contents change
+        network.updateItemIncremental(old != null ? old.item() : null, component.item(), pos);
       }
       notifyStations(level, networkId);
     }
@@ -336,19 +360,28 @@ public class CrateNetworkManager extends SavedData {
   }
 
   private void notifyStations(Level level, UUID networkId) {
-    CrateNetwork network = networks.get(networkId);
-    if (network == null) return;
-    Set<BlockPos> stations = network.nodes.get("station");
-    if (stations == null) return;
+    pendingStationUpdates.add(networkId);
+  }
 
-    for (BlockPos stationPos : stations) {
-      if (level.isLoaded(stationPos)) {
-        var be = level.getBlockEntity(stationPos);
-        if (be instanceof NetworkNode node) {
-          node.markCacheForUpdate();
+  public void tick(Level level) {
+    if (pendingStationUpdates.isEmpty()) return;
+
+    for (UUID networkId : pendingStationUpdates) {
+      CrateNetwork network = networks.get(networkId);
+      if (network == null) continue;
+      Set<BlockPos> stations = network.nodes.get("station");
+      if (stations == null) continue;
+
+      for (BlockPos stationPos : stations) {
+        if (level.isLoaded(stationPos)) {
+          var be = level.getBlockEntity(stationPos);
+          if (be instanceof NetworkNode node) {
+            node.markCacheForUpdate();
+          }
         }
       }
     }
+    pendingStationUpdates.clear();
   }
 
   /**
@@ -368,7 +401,8 @@ public class CrateNetworkManager extends SavedData {
 
   /**
    * Verifies network integrity and self-heals orphaned blocks.
-   * Called on world load
+   * <p>
+   * Called via command "/basicstorage networks heal"
    *
    * @return Number of blocks that were healed
    */
@@ -403,12 +437,45 @@ public class CrateNetworkManager extends SavedData {
 
     int healed = orphans.size() + emptyNetworks.size();
     if (healed > 0) {
-      Constants.LOG.warn("Healed {} network issues ({} orphaned blocks, {} empty networks)",
-          healed, orphans.size(), emptyNetworks.size());
+      Constants.LOG.warn("Healed {} network issues ({} orphaned blocks, {} empty networks)", healed, orphans.size(), emptyNetworks.size());
       setDirty();
     }
 
     return healed;
+  }
+
+  public int recalculateArea(ServerLevel level, BlockPos pos1, BlockPos pos2) {
+    int x1 = Math.min(pos1.getX(), pos2.getX());
+    int y1 = Math.min(pos1.getY(), pos2.getY());
+    int z1 = Math.min(pos1.getZ(), pos2.getZ());
+    int x2 = Math.max(pos1.getX(), pos2.getX());
+    int y2 = Math.max(pos1.getY(), pos2.getY());
+    int z2 = Math.max(pos1.getZ(), pos2.getZ());
+
+    int count = 0;
+    for (int x = x1; x <= x2; x++) {
+      for (int y = y1; y <= y2; y++) {
+        for (int z = z1; z <= z2; z++) {
+          BlockPos p = new BlockPos(x, y, z);
+          if (level.isLoaded(p)) {
+            BlockState state = level.getBlockState(p);
+            if (getType(state) != null) {
+              // Force re-registration
+              onBlockRemoved(level, p);
+              onBlockAdded(level, p, state);
+
+              // Refresh storage info if it's a crate - will fix valid crates showing as empty in network map
+              var be = level.getBlockEntity(p);
+              if (be instanceof CrateBlockEntity crate) {
+                updateStorage(level, p, crate.storage.toComponent());
+              }
+              count++;
+            }
+          }
+        }
+      }
+    }
+    return count;
   }
 
   /**

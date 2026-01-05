@@ -18,7 +18,7 @@ public class CrateNetwork {
   private final Map<ItemVariant, Set<BlockPos>> itemIndex = new ConcurrentHashMap<>();
   private volatile boolean indexDirty = true;
 
-  private static final int SORT_THRESHOLD = 64;
+  private static final int SORT_THRESHOLD = 512;
 
   public CrateNetwork(UUID id) {
     this.id = id;
@@ -65,6 +65,25 @@ public class CrateNetwork {
    */
   public void invalidateIndex() {
     indexDirty = true;
+  }
+
+  /**
+   * Update the index incrementally for a specific block position.
+   */
+  public void updateItemIncremental(ItemVariant oldVariant, ItemVariant newVariant, BlockPos pos) {
+    if (indexDirty) return; /* Full rebuild will trigger anyway, so no need to update here */
+
+    if (oldVariant != null) {
+      Set<BlockPos> oldSet = itemIndex.get(oldVariant);
+      if (oldSet != null) {
+        oldSet.remove(pos);
+        if (oldSet.isEmpty()) itemIndex.remove(oldVariant);
+      }
+    }
+
+    if (newVariant != null && !newVariant.isBlank()) {
+      itemIndex.computeIfAbsent(newVariant, k -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(pos);
+    }
   }
 
   /**
