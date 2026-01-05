@@ -1,5 +1,6 @@
 package com.khazoda.basicstorage.block;
 
+import com.khazoda.basicstorage.storage.CrateNetworkDebug;
 import com.khazoda.basicstorage.storage.CrateNetworkManager;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
@@ -63,6 +64,8 @@ public class CrateConnectorBlock extends Block {
 
   @Override
   protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos, Player player, BlockHitResult hit) {
+    if (CrateNetworkDebug.debugStickUsed(world, player, pos)) return InteractionResult.SUCCESS;
+
     if (!world.isClientSide() && player.getMainHandItem().isEmpty()) {
       CrateNetworkManager manager = CrateNetworkManager.get((ServerLevel) world);
       var network = manager.getNetworkFor(pos);

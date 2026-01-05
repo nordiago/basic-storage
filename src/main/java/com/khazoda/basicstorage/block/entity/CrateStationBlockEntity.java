@@ -2,10 +2,9 @@ package com.khazoda.basicstorage.block.entity;
 
 import com.khazoda.basicstorage.packet.StationBeamPayload;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
-import com.khazoda.basicstorage.storage.CrateNetworkManager;
 import com.khazoda.basicstorage.storage.CrateNetwork;
+import com.khazoda.basicstorage.storage.CrateNetworkManager;
 import com.khazoda.basicstorage.storage.NetworkNode;
-import com.khazoda.basicstorage.structure.CrateSlotComponent;
 import com.mojang.serialization.Codec;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -36,9 +35,8 @@ import java.util.*;
 public class CrateStationBlockEntity extends BlockEntity implements NetworkNode, WorldlyContainer {
 
   private final Map<ItemVariant, List<BlockPos>> crateRegistry = new HashMap<>();
-  private final Set<ItemVariant> sortedVariants = new HashSet<>();
-  private final Set<BlockPos> connectedValidCrates = new HashSet<>();
-  private final Set<BlockPos> connectedEmptyCrates = new HashSet<>();
+  private final List<BlockPos> connectedValidCrates = new ArrayList<>();
+  private final List<BlockPos> connectedEmptyCrates = new ArrayList<>();
   private boolean needsCacheUpdate = true;
   private boolean hasCheckedRegistration = false;
   private boolean registeredOnServer = false;
@@ -89,27 +87,23 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
   }
 
   private void distributeBuffer() {
-    if (level == null) return;
+    if (level == null || level.isClientSide() || !(level instanceof ServerLevel serverLevel)) return;
     boolean changed = false;
 
     List<StationBeamPayload.Target> beamTargets = new ArrayList<>();
+    CrateNetworkManager manager = CrateNetworkManager.get(serverLevel);
 
     for (int i = 0; i < stationBuffer.size(); i++) {
       ItemStack stack = stationBuffer.get(i);
       if (stack.isEmpty()) continue;
 
       ItemVariant variant = ItemVariant.of(stack);
-      List<BlockPos> compatibleCrates = crateRegistry.get(variant);
+      List<BlockPos> compatibleCrates = manager.findCratesForItem(worldPosition, variant);
 
-      if (compatibleCrates != null && !compatibleCrates.isEmpty()) {
-        // Lazy nearest-variant sorting
-        if (!sortedVariants.contains(variant)) {
-          compatibleCrates.sort(Comparator.comparingDouble(worldPosition::distSqr));
-          sortedVariants.add(variant);
-        }
-
+      if (!compatibleCrates.isEmpty()) {
         // Insert items into compatible crates
         for (BlockPos cratePos : compatibleCrates) {
+          if (!serverLevel.isLoaded(cratePos)) continue;
           BlockEntity be = level.getBlockEntity(cratePos);
           if (be instanceof CrateBlockEntity crate) {
             try (Transaction transaction = Transaction.openOuter()) {
@@ -134,15 +128,13 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
       for (ServerPlayer player : PlayerLookup.tracking(this)) {
         ServerPlayNetworking.send(player, payload);
       }
-    } else if (!stationBuffer.isEmpty() && !changed && level instanceof ServerLevel serverLevel && isClogged()) {
+    } else if (!stationBuffer.isEmpty() && !changed && isClogged()) {
       serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.SMOKE, worldPosition.getX() + 0.5, worldPosition.getY() + 1.1, worldPosition.getZ() + 0.5, 5, 0.1, 0.1, 0.1, 0.05);
     }
 
     if (changed) {
       setChanged();
-      if (this.level != null) {
-        this.level.updateNeighbourForOutputSignal(this.worldPosition, this.getBlockState().getBlock());
-      }
+      level.updateNeighbourForOutputSignal(worldPosition, getBlockState().getBlock());
     }
   }
 
@@ -178,17 +170,14 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
     CrateNetwork network = manager.getNetworkFor(worldPosition);
     if (network == null) return;
 
-    for (BlockPos cratePos : network.crates()) {
-      CrateSlotComponent contents = manager.getStorage(cratePos);
-      if (contents == null || contents.item().isBlank()) {
-        connectedEmptyCrates.add(cratePos);
-      } else {
-        connectedValidCrates.add(cratePos);
-        ItemVariant variant = contents.item();
-        crateRegistry.computeIfAbsent(variant, k -> new ArrayList<>()).add(cratePos);
-      }
+    connectedEmptyCrates.addAll(manager.findCratesForItem(worldPosition, ItemVariant.blank()));
+
+    for (ItemVariant variant : network.getIndexedVariants(manager)) {
+      if (variant.isBlank()) continue;
+      List<BlockPos> crates = manager.findCratesForItem(worldPosition, variant);
+      crateRegistry.put(variant, new ArrayList<>(crates));
+      connectedValidCrates.addAll(crates);
     }
-    sortedVariants.clear();
     setChanged();
   }
 
@@ -200,7 +189,6 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
       }
     }
     crateRegistry.clear();
-    sortedVariants.clear();
     connectedValidCrates.clear();
     connectedEmptyCrates.clear();
     super.setRemoved();
@@ -211,11 +199,11 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
     setChanged();
   }
 
-  public Set<BlockPos> getConnectedValidCrates() {
+  public List<BlockPos> getConnectedValidCrates() {
     return connectedValidCrates;
   }
 
-  public Set<BlockPos> getConnectedEmptyCrates() {
+  public List<BlockPos> getConnectedEmptyCrates() {
     return connectedEmptyCrates;
   }
 

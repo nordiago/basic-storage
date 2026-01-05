@@ -6,6 +6,7 @@ import com.khazoda.basicstorage.packet.StationBeamPayload;
 import com.khazoda.basicstorage.registry.BlockEntityRegistry;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
+import com.khazoda.basicstorage.storage.CrateNetworkDebug;
 import com.khazoda.basicstorage.storage.CrateNetworkManager;
 import com.mojang.serialization.MapCodec;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
@@ -86,6 +87,8 @@ public class CrateStationBlock extends BaseEntityBlock {
       BlockPos pos = hit.getBlockPos();
       BlockState state = world.getBlockState(pos);
       BlockEntity be = world.getBlockEntity(pos);
+
+      if (CrateNetworkDebug.debugStickUsed(world, player, pos)) return InteractionResult.SUCCESS;
 
       if (be == null) return InteractionResult.PASS;
 

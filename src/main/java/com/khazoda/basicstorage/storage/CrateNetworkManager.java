@@ -1,11 +1,13 @@
 package com.khazoda.basicstorage.storage;
 
+import com.khazoda.basicstorage.Constants;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.structure.CrateSlotComponent;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
+import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -232,6 +234,7 @@ public class CrateNetworkManager extends SavedData {
     CrateNetwork network = networks.computeIfAbsent(networkId, CrateNetwork::new);
     blockToNetwork.put(pos, networkId);
     network.nodes.computeIfAbsent(type, k -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(pos);
+    network.invalidateIndex();
 
     setDirty();
     notifyStations(level, networkId);
@@ -245,6 +248,7 @@ public class CrateNetworkManager extends SavedData {
     CrateNetwork network = networks.get(networkId);
     if (network != null) {
       network.nodes.values().forEach(set -> set.remove(pos));
+      network.invalidateIndex();
     }
     globalStorage.remove(pos);
 
@@ -262,6 +266,7 @@ public class CrateNetworkManager extends SavedData {
     CrateNetwork target = networks.computeIfAbsent(targetId, CrateNetwork::new);
     CrateNetwork source = networks.remove(sourceId);
     if (source == null) return;
+    target.invalidateIndex();
     source.nodes.forEach((type, posSet) -> {
       for (BlockPos pos : posSet) {
         blockToNetwork.put(pos, targetId);
@@ -317,6 +322,11 @@ public class CrateNetworkManager extends SavedData {
 
     UUID networkId = blockToNetwork.get(pos);
     if (networkId != null) {
+      CrateNetwork network = networks.get(networkId);
+      if (network != null) {
+        // Invalidate the item index since contents changed
+        network.invalidateIndex();
+      }
       notifyStations(level, networkId);
     }
   }
@@ -339,6 +349,84 @@ public class CrateNetworkManager extends SavedData {
         }
       }
     }
+  }
+
+  /**
+   * Find crates in the network containing the given variant.
+   * Results are sorted by distance to station if under 64 matches.
+   *
+   * @param stationPos Position of the requesting station
+   * @param variant    Item variant to search for
+   * @return List of crate positions, empty if none found
+   */
+  public List<BlockPos> findCratesForItem(BlockPos stationPos, ItemVariant variant) {
+    CrateNetwork network = getNetworkFor(stationPos);
+    if (network == null) return List.of();
+    return network.findCratesForItem(variant, stationPos, this);
+  }
+
+
+  /**
+   * Verifies network integrity and self-heals orphaned blocks.
+   * Called on world load
+   *
+   * @return Number of blocks that were healed
+   */
+  public int verifyIntegrity(ServerLevel level) {
+    // Find orphaned blocks (in blockToNetwork but network doesn't exist)
+    Set<BlockPos> orphans = new HashSet<>();
+    for (Map.Entry<BlockPos, UUID> entry : blockToNetwork.entrySet()) {
+      if (!networks.containsKey(entry.getValue())) {
+        orphans.add(entry.getKey());
+      }
+    }
+
+    // Re-register orphaned blocks
+    for (BlockPos pos : orphans) {
+      blockToNetwork.remove(pos);
+      if (level.isLoaded(pos)) {
+        BlockState state = level.getBlockState(pos);
+        if (getType(state) != null) {
+          onBlockAdded(level, pos, state);
+        }
+      }
+    }
+
+    // Clean up empty networks
+    Set<UUID> emptyNetworks = new HashSet<>();
+    for (Map.Entry<UUID, CrateNetwork> entry : networks.entrySet()) {
+      if (entry.getValue().isEmpty()) {
+        emptyNetworks.add(entry.getKey());
+      }
+    }
+    emptyNetworks.forEach(networks::remove);
+
+    int healed = orphans.size() + emptyNetworks.size();
+    if (healed > 0) {
+      Constants.LOG.warn("Healed {} network issues ({} orphaned blocks, {} empty networks)",
+          healed, orphans.size(), emptyNetworks.size());
+      setDirty();
+    }
+
+    return healed;
+  }
+
+  /**
+   * Get network statistics for debugging.
+   */
+  public NetworkStats getStats() {
+    int totalNodes = 0;
+    int totalCrates = 0;
+    int totalStations = 0;
+    for (CrateNetwork network : networks.values()) {
+      totalNodes += network.size();
+      totalCrates += network.crates().size();
+      totalStations += network.stations().size();
+    }
+    return new NetworkStats(networks.size(), totalNodes, totalCrates, totalStations);
+  }
+
+  public record NetworkStats(int networkCount, int totalNodes, int totalCrates, int totalStations) {
   }
 }
 

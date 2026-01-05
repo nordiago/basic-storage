@@ -36,6 +36,9 @@ public class BasicStorage implements ModInitializer {
     ServerWorldEvents.UNLOAD.register((server, world) -> {
       CrateNetworkManager.clearCache(world);
     });
+    ServerWorldEvents.LOAD.register((server, world) -> {
+      CrateNetworkManager.get(world).verifyIntegrity(world);
+    });
     BasicStorageConfig.getInstance().load();
     Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, Identifier.parse(Constants.NAMESPACE), BW_ITEMGROUP);
     BlockRegistry.init();

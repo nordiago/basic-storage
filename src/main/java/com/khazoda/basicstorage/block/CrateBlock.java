@@ -6,6 +6,7 @@ import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.registry.DataComponentRegistry;
 import com.khazoda.basicstorage.registry.SoundRegistry;
+import com.khazoda.basicstorage.storage.CrateNetworkDebug;
 import com.khazoda.basicstorage.storage.CrateNetworkManager;
 import com.khazoda.basicstorage.storage.CrateSlot;
 import com.khazoda.basicstorage.util.BlockUtils;
@@ -156,6 +157,8 @@ public class CrateBlock extends BaseEntityBlock {
       BlockPos pos = hit.getBlockPos();
       BlockState state = world.getBlockState(pos);
 
+      if (CrateNetworkDebug.debugStickUsed(world, player, pos)) return InteractionResult.SUCCESS_SERVER;
+
       /* Todo: remove block after migration period */
       if (!world.isClientSide()) {
         fixLegacyState(state, world, pos);
@@ -170,8 +173,8 @@ public class CrateBlock extends BaseEntityBlock {
       if (facing != hit.getDirection()) return InteractionResult.PASS;
 
       CrateBlockEntity cbe = (CrateBlockEntity) be;
-      ItemStack playerStack = player.getMainHandItem();
       CrateSlot slot = cbe.storage;
+      ItemStack playerStack = player.getMainHandItem();
 
       try (var t = Transaction.openOuter()) {
         int inserted = 0;
@@ -255,7 +258,8 @@ public class CrateBlock extends BaseEntityBlock {
   /* Stop them being inserted into crates */
   public static boolean canInsert(ItemStack stack, CrateSlot slot, boolean insertingMultiple) {
     if (insertingMultiple) {
-      return !slot.isBlank() || canInsert(stack, slot, false); // Prevents stacked undesirables from being insertable
+      return !slot.isBlank() || canInsert(stack, slot, false);
+      // Prevents stacked undesirables from being insertable
       // when sneaking
       // This is ok as another check is done when actually inserting the items in
       // CrateSlot#insert
