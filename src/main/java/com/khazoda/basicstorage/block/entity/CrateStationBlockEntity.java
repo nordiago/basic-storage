@@ -94,7 +94,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
     if (level == null || level.isClientSide() || !(level instanceof ServerLevel serverLevel)) return;
     boolean changed = false;
 
-    List<StationBeamPayload.Target> beamTargets = new ArrayList<>();
+    StationBeamPayload.Target[] groupedBeams = new StationBeamPayload.Target[6];
     CrateNetworkManager manager = CrateNetworkManager.get(serverLevel);
 
     for (int i = 0; i < stationBuffer.size(); i++) {
@@ -120,7 +120,12 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
                 stack.shrink((int) inserted);
                 transaction.commit();
                 changed = true;
-                beamTargets.add(new StationBeamPayload.Target(cratePos, (int) inserted));
+                int id = i / 9;
+                if (groupedBeams[id] == null) {
+                  groupedBeams[id] = new StationBeamPayload.Target(cratePos, (int) inserted);
+                } else {
+                  groupedBeams[id] = new StationBeamPayload.Target(groupedBeams[id].pos(), groupedBeams[id].amount() + (int) inserted);
+                }
                 this.itemsDistributedInTick += (int) inserted;
                 if (stack.isEmpty()) break;
               }
@@ -128,6 +133,11 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
           }
         }
       }
+    }
+
+    List<StationBeamPayload.Target> beamTargets = new ArrayList<>();
+    for (StationBeamPayload.Target target : groupedBeams) {
+      if (target != null) beamTargets.add(target);
     }
 
     if (!beamTargets.isEmpty()) {
