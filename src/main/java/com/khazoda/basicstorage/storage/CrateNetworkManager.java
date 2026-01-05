@@ -274,7 +274,8 @@ public class CrateNetworkManager extends SavedData {
     List<BlockPos> adjacent = new ArrayList<>();
     for (Direction dir : Direction.values()) {
       BlockPos neighbor = pos.relative(dir);
-      if (blockToNetwork.get(neighbor) != null) {
+      UUID neighborId = blockToNetwork.get(neighbor);
+      if (neighborId != null && neighborId.equals(network.id)) {
         neighbors++;
         adjacent.add(neighbor);
       }
@@ -348,10 +349,16 @@ public class CrateNetworkManager extends SavedData {
     if (networkId != null) {
       CrateNetwork network = networks.get(networkId);
       if (network != null) {
+
+        // Skip index update and notification if only count changed
+        if (old != null && old.item().equals(component.item())) {
+          return;
+        }
+
         // Incremental index update when contents change
         network.updateItemIncremental(old != null ? old.item() : null, component.item(), pos);
+        notifyStations(level, networkId);
       }
-      notifyStations(level, networkId);
     }
   }
 

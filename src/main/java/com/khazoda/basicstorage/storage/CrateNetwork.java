@@ -26,7 +26,7 @@ public class CrateNetwork {
 
   /**
    * Find crates that contain the given variant, sorted by distance to station
-   * For networks with >64 matching crates, returns unsorted for performance
+   * For networks with >512 matching crates, returns unsorted for performance
    *
    * @param variant    The item variant to search for
    * @param stationPos The position of the requesting station
@@ -72,6 +72,8 @@ public class CrateNetwork {
    */
   public void updateItemIncremental(ItemVariant oldVariant, ItemVariant newVariant, BlockPos pos) {
     if (indexDirty) return; /* Full rebuild will trigger anyway, so no need to update here */
+
+    if (Objects.equals(oldVariant, newVariant)) return;
 
     if (oldVariant != null) {
       Set<BlockPos> oldSet = itemIndex.get(oldVariant);
