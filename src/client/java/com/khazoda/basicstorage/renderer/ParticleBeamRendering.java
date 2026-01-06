@@ -1,5 +1,6 @@
 package com.khazoda.basicstorage.renderer;
 
+import com.khazoda.basicstorage.BasicStorageClientConfig;
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.packet.StationBeamPayload;
 import com.khazoda.basicstorage.registry.ParticleRegistry;
@@ -281,6 +282,7 @@ public class ParticleBeamRendering {
     }
 
     public void spawnParticles(double startProgress, double endProgress) {
+      if (!BasicStorageClientConfig.INSTANCE.showCrateStationBeams()) return;
       int startStep = (int) (totalSteps * startProgress);
       int endStep = (int) (totalSteps * endProgress);
 

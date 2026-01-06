@@ -24,6 +24,9 @@
     ],
     "fabric-datagen": [
       "com.khazoda.basicstorage.datagen.BasicStorageDataGenerator"
+    ],
+    "sodium:config_api_user": [
+      "com.khazoda.basicstorage.integration.sodium.BasicStorageSodiumIntegration"
     ]
   },
   "mixins": [
