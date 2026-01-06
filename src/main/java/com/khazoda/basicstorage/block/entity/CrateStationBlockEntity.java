@@ -36,6 +36,7 @@ import java.util.*;
 public class CrateStationBlockEntity extends BlockEntity implements NetworkNode, WorldlyContainer {
 
   private static final int MAX_RECENT_LOOKUPS = 8;
+  private record BeamKey(ItemVariant variant, BlockPos pos) {}
   private final LinkedHashMap<ItemVariant, List<BlockPos>> recentLookups = new LinkedHashMap<>(MAX_RECENT_LOOKUPS, 0.75f, true) {
     @Override
     protected boolean removeEldestEntry(Map.Entry<ItemVariant, List<BlockPos>> eldest) {
@@ -95,7 +96,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
     if (level == null || level.isClientSide() || !(level instanceof ServerLevel serverLevel)) return;
     boolean changed = false;
 
-    StationBeamPayload.Target[] groupedBeams = new StationBeamPayload.Target[6];
+    Map<BeamKey, Integer> groupedBeams = new LinkedHashMap<>();
     CrateNetworkManager manager = CrateNetworkManager.get(serverLevel);
 
     for (int i = 0; i < stationBuffer.size(); i++) {
@@ -121,12 +122,10 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
                 stack.shrink((int) inserted);
                 transaction.commit();
                 changed = true;
-                int id = i / 9;
-                if (groupedBeams[id] == null) {
-                  groupedBeams[id] = new StationBeamPayload.Target(cratePos, (int) inserted);
-                } else {
-                  groupedBeams[id] = new StationBeamPayload.Target(groupedBeams[id].pos(), groupedBeams[id].amount() + (int) inserted);
-                }
+
+                BeamKey key = new BeamKey(variant, cratePos);
+                groupedBeams.put(key, groupedBeams.getOrDefault(key, 0) + (int) inserted);
+
                 this.itemsDistributedInTick += (int) inserted;
                 if (stack.isEmpty()) break;
               }
@@ -137,8 +136,8 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
     }
 
     List<StationBeamPayload.Target> beamTargets = new ArrayList<>();
-    for (StationBeamPayload.Target target : groupedBeams) {
-      if (target != null) beamTargets.add(target);
+    for (Map.Entry<BeamKey, Integer> entry : groupedBeams.entrySet()) {
+      beamTargets.add(new StationBeamPayload.Target(entry.getKey().pos(), entry.getValue()));
     }
 
     if (!beamTargets.isEmpty()) {
