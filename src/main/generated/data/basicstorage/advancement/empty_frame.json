@@ -1,0 +1,33 @@
+{
+  "parent": "basicstorage:pack_rat",
+  "criteria": {
+    "has_frame": {
+      "conditions": {
+        "items": [
+          {
+            "items": "basicstorage:crate_station_frame"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancement.basicstorage.empty_frame.desc"
+    },
+    "icon": {
+      "count": 1,
+      "id": "basicstorage:crate_station_frame"
+    },
+    "title": {
+      "translate": "advancement.basicstorage.empty_frame.title"
+    }
+  },
+  "requirements": [
+    [
+      "has_frame"
+    ]
+  ],
+  "sends_telemetry_event": true
+}

@@ -1,0 +1,33 @@
+{
+  "parent": "minecraft:story/mine_stone",
+  "criteria": {
+    "has_crate": {
+      "conditions": {
+        "items": [
+          {
+            "items": "basicstorage:crate"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancement.basicstorage.pack_rat.desc"
+    },
+    "icon": {
+      "count": 1,
+      "id": "basicstorage:crate"
+    },
+    "title": {
+      "translate": "advancement.basicstorage.pack_rat.title"
+    }
+  },
+  "requirements": [
+    [
+      "has_crate"
+    ]
+  ],
+  "sends_telemetry_event": true
+}

@@ -19,5 +19,13 @@
   "message.basicstorage.connector.info.crates": "%d Crates",
   "message.basicstorage.connector.info.stations": "%d Stations",
   "message.basicstorage.connector.info.connectors": "%d Connectors",
-  "message.basicstorage.station.status.clogged": "• Buffer Clogged •"
+  "message.basicstorage.station.status.clogged": "• Buffer Clogged •",
+  "advancement.basicstorage.pack_rat.title": "Pack Rat",
+  "advancement.basicstorage.pack_rat.desc": "Make a Crate to store your riches",
+  "advancement.basicstorage.empty_frame.title": "Empty Frame",
+  "advancement.basicstorage.empty_frame.desc": "Craft a vessel for an all-seeing eye",
+  "advancement.basicstorage.eye_for_organization.title": "An Eye for Organization",
+  "advancement.basicstorage.eye_for_organization.desc": "Transform a Frame into a functional Crate Station",
+  "advancement.basicstorage.nodal_networking.title": "Nodal Networking",
+  "advancement.basicstorage.nodal_networking.desc": "Expand your Station's reach with Crate Connectors"
 }

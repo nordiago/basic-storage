@@ -10,5 +10,6 @@ public class BasicStorageDataGenerator implements DataGeneratorEntrypoint {
     var pack = fabricDataGenerator.createPack();
 
     pack.addProvider(CrateLootTableProvider::new);
+    pack.addProvider(AdvancementProvider::new);
   }
 }

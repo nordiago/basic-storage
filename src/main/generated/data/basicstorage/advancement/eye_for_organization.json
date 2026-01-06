@@ -1,0 +1,27 @@
+{
+  "parent": "basicstorage:empty_frame",
+  "criteria": {
+    "transformed": {
+      "trigger": "basicstorage:station_transformed"
+    }
+  },
+  "display": {
+    "description": {
+      "translate": "advancement.basicstorage.eye_for_organization.desc"
+    },
+    "frame": "goal",
+    "icon": {
+      "count": 1,
+      "id": "basicstorage:crate_station"
+    },
+    "title": {
+      "translate": "advancement.basicstorage.eye_for_organization.title"
+    }
+  },
+  "requirements": [
+    [
+      "transformed"
+    ]
+  ],
+  "sends_telemetry_event": true
+}

@@ -57,6 +57,7 @@ public class BasicStorage implements ModInitializer {
     SoundRegistry.init();
     EventRegistry.init();
     DataComponentRegistry.init();
+    CriterionRegistry.init();
 
     ComponentTooltipAppenderRegistry.addFirst(DataComponentRegistry.CRATE_CONTENTS);
 
