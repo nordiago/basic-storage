@@ -29,7 +29,6 @@ import net.minecraft.world.phys.Vec3;
 public class CrateBlockEntity extends BlockEntity implements ItemOwner {
 
   public final CrateSlot storage = new CrateSlot(this);
-  private boolean hasCheckedRegistration = false;
   private boolean registeredOnServer = false;
   public static final Codec<CrateSlotComponent> SLOT_CODEC = RecordCodecBuilder.create(instance -> instance.group(ItemVariant.CODEC.fieldOf("item").orElse(ItemVariant.blank()).forGetter(CrateSlotComponent::item), Codec.INT.fieldOf("count").orElse(0).forGetter(CrateSlotComponent::count)).apply(instance, CrateSlotComponent::new));
 
@@ -43,26 +42,10 @@ public class CrateBlockEntity extends BlockEntity implements ItemOwner {
   public void refresh() {
     this.setChanged();
     if (this.level instanceof ServerLevel serverLevel) {
-      checkRegistration(serverLevel);
       CrateNetworkManager.get(serverLevel).updateStorage(serverLevel, worldPosition, storage.toComponent());
       BlockState state = this.getBlockState();
       serverLevel.sendBlockUpdated(this.worldPosition, state, state, Block.UPDATE_CLIENTS);
     }
-  }
-
-  private void checkRegistration(ServerLevel level) {
-    if (hasCheckedRegistration) return;
-
-    CrateNetworkManager manager = CrateNetworkManager.get(level);
-    this.registeredOnServer = manager.isRegistered(worldPosition);
-
-    if (!this.registeredOnServer) {
-      manager.onBlockAdded(level, worldPosition, getBlockState());
-      manager.updateStorage(level, worldPosition, storage.toComponent());
-      this.registeredOnServer = true;
-    }
-
-    hasCheckedRegistration = true;
   }
 
   /**

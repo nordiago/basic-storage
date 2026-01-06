@@ -36,7 +36,10 @@ import java.util.*;
 public class CrateStationBlockEntity extends BlockEntity implements NetworkNode, WorldlyContainer {
 
   private static final int MAX_RECENT_LOOKUPS = 8;
-  private record BeamKey(ItemVariant variant, BlockPos pos) {}
+
+  private record BeamKey(ItemVariant variant, BlockPos pos) {
+  }
+
   private final LinkedHashMap<ItemVariant, List<BlockPos>> recentLookups = new LinkedHashMap<>(MAX_RECENT_LOOKUPS, 0.75f, true) {
     @Override
     protected boolean removeEldestEntry(Map.Entry<ItemVariant, List<BlockPos>> eldest) {
@@ -44,7 +47,6 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
     }
   };
   private boolean needsCacheUpdate = true;
-  private boolean hasCheckedRegistration = false;
   private boolean registeredOnServer = false;
 
   private final NonNullList<ItemStack> stationBuffer = NonNullList.withSize(54, ItemStack.EMPTY);
@@ -63,7 +65,6 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
 
   public static void tick(Level world, BlockPos pos, BlockState state, CrateStationBlockEntity be) {
     if (world instanceof ServerLevel serverLevel) {
-      be.checkRegistration(serverLevel);
       be.tickDistribution();
       be.tickThroughputTracking(serverLevel);
     }
@@ -94,10 +95,17 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
 
   private void distributeBuffer() {
     if (level == null || level.isClientSide() || !(level instanceof ServerLevel serverLevel)) return;
+
+    /* Skip distribution if network is rebuilding to prevent desync */
+    CrateNetworkManager manager = CrateNetworkManager.get(serverLevel);
+    CrateNetwork network = manager.getNetworkFor(worldPosition);
+    if (network != null && manager.isNetworkLocked(network.id)) {
+      return;
+    }
+
     boolean changed = false;
 
     Map<BeamKey, Integer> groupedBeams = new LinkedHashMap<>();
-    CrateNetworkManager manager = CrateNetworkManager.get(serverLevel);
 
     for (int i = 0; i < stationBuffer.size(); i++) {
       ItemStack stack = stationBuffer.get(i);
@@ -114,6 +122,13 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
         // Insert items into compatible crates
         for (BlockPos cratePos : compatibleCrates) {
           if (!serverLevel.isLoaded(cratePos)) continue;
+
+          /*
+           * Ensure crate is actually registered in a network
+           * Prevents sending to disconnected crates after reset command
+           */
+          if (!manager.isRegistered(cratePos)) continue;
+
           BlockEntity be = level.getBlockEntity(cratePos);
           if (be instanceof CrateBlockEntity crate) {
             try (Transaction transaction = Transaction.openOuter()) {
@@ -162,21 +177,6 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
     }
     return true;
   }
-
-  private void checkRegistration(ServerLevel level) {
-    if (hasCheckedRegistration) return;
-
-    CrateNetworkManager manager = CrateNetworkManager.get(level);
-    this.registeredOnServer = manager.isRegistered(worldPosition);
-
-    if (!this.registeredOnServer) {
-      manager.onBlockAdded(level, worldPosition, getBlockState());
-      this.registeredOnServer = true;
-    }
-
-    hasCheckedRegistration = true;
-  }
-
 
   @Override
   public void setRemoved() {

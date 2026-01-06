@@ -106,10 +106,6 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
 
     crateState.isRegistered = be.isRegistered();
 
-    /* Uncomment 2 lines below to enable DEBUGGING */
-//    var player = net.minecraft.client.Minecraft.getInstance().player;
-//    crateState.holdingDebugger = player != null && (player.getMainHandItem().is(net.minecraft.world.item.Items.DEBUG_STICK) || player.getOffhandItem().is(net.minecraft.world.item.Items.DEBUG_STICK));
-
     crateState.highlightTicks = ParticleBeamRendering.highlightedCrates.getOrDefault(pos, 0);
   }
 

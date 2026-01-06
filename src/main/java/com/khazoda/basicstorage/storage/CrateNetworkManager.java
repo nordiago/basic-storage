@@ -4,30 +4,17 @@ import com.khazoda.basicstorage.Constants;
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.structure.CrateSlotComponent;
-import com.mojang.datafixers.util.Pair;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.DataResult;
-import com.mojang.serialization.DynamicOps;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.saveddata.SavedData;
-import net.minecraft.world.level.saveddata.SavedDataType;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class CrateNetworkManager extends SavedData {
-  private static final String DATA_ID = "basicstorage_networks";
+public class CrateNetworkManager {
   private static final Map<ServerLevel, CrateNetworkManager> INSTANCE_CACHE = new ConcurrentHashMap<>();
 
   private final Map<BlockPos, UUID> blockToNetwork = new ConcurrentHashMap<>();
@@ -35,155 +22,106 @@ public class CrateNetworkManager extends SavedData {
   private final Map<BlockPos, CrateSlotComponent> globalStorage = new ConcurrentHashMap<>();
   private final Set<UUID> pendingStationUpdates = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
+  private final NetworkFileManager fileManager;
+  private final AsyncNetworkRebuilder asyncRebuilder;
+  private final Set<UUID> dirtyNetworks = Collections.newSetFromMap(new ConcurrentHashMap<>());
+  private final Set<UUID> networksToDelete = Collections.newSetFromMap(new ConcurrentHashMap<>());
+  private final Set<UUID> networksUndergoingRebuild = Collections.newSetFromMap(new ConcurrentHashMap<>());
+  private final ServerLevel serverLevel; // Each dimension gets its own manager
+  private boolean loaded = false;
+  private long lastSaveTick = 0;
+  private final long saveInterval; // Randomized interval for each manager to spread out save tasks
 
-  public CrateNetworkManager() {
+  private CrateNetworkManager(ServerLevel level) {
+    this.serverLevel = level;
+    this.fileManager = new NetworkFileManager(level);
+    this.asyncRebuilder = new AsyncNetworkRebuilder();
+    this.saveInterval = 4800 + new Random().nextInt(2400); // 4-6 minutes
   }
-
-  private static final Codec<CrateNetworkManager> OPTIMIZED_CODEC = new Codec<>() {
-    @Override
-    public <T> DataResult<Pair<CrateNetworkManager, T>> decode(DynamicOps<T> ops, T input) {
-      Tag tag = ops.convertTo(NbtOps.INSTANCE, input);
-      if (tag instanceof CompoundTag nbt) {
-        return DataResult.success(Pair.of(load(nbt, null), input));
-      }
-      return DataResult.error(() -> "Not a compound tag");
-    }
-
-    @Override
-    public <T> DataResult<T> encode(CrateNetworkManager input, DynamicOps<T> ops, T prefix) {
-      CompoundTag nbt = input.saveNbt(new CompoundTag(), null);
-      return DataResult.success(NbtOps.INSTANCE.convertTo(ops, nbt));
-    }
-  };
 
   public static CrateNetworkManager get(ServerLevel level) {
     return INSTANCE_CACHE.computeIfAbsent(level, l -> {
-      SavedDataType<CrateNetworkManager> type = new SavedDataType<>(DATA_ID, CrateNetworkManager::new, OPTIMIZED_CODEC, DataFixTypes.LEVEL);
-      return l.getDataStorage().computeIfAbsent(type);
+      CrateNetworkManager manager = new CrateNetworkManager(l);
+      manager.loadFromDisk();
+      return manager;
     });
   }
 
   public static void clearCache(ServerLevel level) {
-    INSTANCE_CACHE.remove(level);
+    CrateNetworkManager manager = INSTANCE_CACHE.remove(level);
+    if (manager != null) {
+      manager.shutdown();
+    }
   }
 
-  public static CrateNetworkManager load(CompoundTag nbt, HolderLookup.Provider provider) {
-    CrateNetworkManager manager = new CrateNetworkManager();
+  private void loadFromDisk() {
+    if (loaded) return;
 
+    NetworkFileManager.LoadResult result = fileManager.loadAllNetworks();
 
-    // Load blockToNetwork
-    nbt.getLongArray("btn_pos").ifPresent(posArr -> {
-      nbt.getLongArray("btn_uuid").ifPresent(uuidArr -> {
-        int count = Math.min(posArr.length, uuidArr.length / 2);
-        for (int i = 0; i < count; i++) {
-          manager.blockToNetwork.put(BlockPos.of(posArr[i]), new UUID(uuidArr[i * 2], uuidArr[i * 2 + 1]));
-        }
-      });
-    });
+    for (Map.Entry<UUID, CrateNetwork> entry : result.networks().entrySet()) {
+      UUID networkId = entry.getKey();
+      CrateNetwork network = entry.getValue();
 
-    // Load networks
-    nbt.getCompound("networks").ifPresent(networksTag -> {
-      for (String idStr : networksTag.keySet()) {
-        try {
-          UUID id = UUID.fromString(idStr);
-          networksTag.getCompound(idStr).ifPresent(nTag -> {
-            CrateNetwork network = new CrateNetwork(id);
-            nTag.getCompound("nodes").ifPresent(nodesTag -> {
-              for (String typeName : nodesTag.keySet()) {
-                nodesTag.getLongArray(typeName).ifPresent(nodesArr -> {
-                  Set<BlockPos> posSet = network.nodes.computeIfAbsent(typeName, k -> Collections.newSetFromMap(new ConcurrentHashMap<>()));
-                  for (long p : nodesArr) posSet.add(BlockPos.of(p));
-                });
-              }
-            });
-            manager.networks.put(id, network);
-          });
-        } catch (Exception ignored) {
+      networks.put(networkId, network);
+
+      for (Set<BlockPos> positions : network.nodes.values()) {
+        for (BlockPos pos : positions) {
+          blockToNetwork.put(pos, networkId);
         }
       }
-    });
+    }
 
-    // Load paletted globalStorage
-    nbt.getList("gs_palette_v").ifPresent(paletteTag -> {
-      nbt.getLongArray("gs_pos").ifPresent(posArr -> {
-        nbt.getIntArray("gs_idx").ifPresent(idxArr -> {
-          nbt.getIntArray("gs_count").ifPresent(countArr -> {
-            List<ItemVariant> palette = new ArrayList<>();
-            for (int i = 0; i < paletteTag.size(); i++) {
-              ItemVariant.CODEC.parse(NbtOps.INSTANCE, paletteTag.get(i)).result().ifPresent(palette::add);
-            }
+    globalStorage.putAll(result.globalStorage());
 
-            for (int i = 0; i < posArr.length && i < idxArr.length && i < countArr.length; i++) {
-              if (idxArr[i] >= 0 && idxArr[i] < palette.size()) {
-                manager.globalStorage.put(BlockPos.of(posArr[i]), new CrateSlotComponent(palette.get(idxArr[i]), countArr[i]));
-              }
-            }
-          });
-        });
-      });
-    });
-
-    return manager;
+    loaded = true;
+    Constants.LOG.info("Loaded {} networks from disk", networks.size());
   }
 
-  public CompoundTag saveNbt(CompoundTag nbt, HolderLookup.Provider provider) {
-    // Save blockToNetwork
-    long[] posArr = new long[blockToNetwork.size()];
-    long[] uuidArr = new long[blockToNetwork.size() * 2];
-    int i = 0;
-    for (Map.Entry<BlockPos, UUID> entry : blockToNetwork.entrySet()) {
-      posArr[i] = entry.getKey().asLong();
-      uuidArr[i * 2] = entry.getValue().getMostSignificantBits();
-      uuidArr[i * 2 + 1] = entry.getValue().getLeastSignificantBits();
-      i++;
-    }
-    nbt.putLongArray("btn_pos", posArr);
-    nbt.putLongArray("btn_uuid", uuidArr);
+  /**
+   * Save all dirty networks to disk.
+   */
+  public void save(ServerLevel level) {
+    Set<UUID> toSave = new HashSet<>(dirtyNetworks);
+    Set<UUID> toDelete = new HashSet<>(networksToDelete);
+    dirtyNetworks.clear();
+    networksToDelete.clear();
 
-    // Save networks
-    CompoundTag networksTag = new CompoundTag();
-    for (Map.Entry<UUID, CrateNetwork> entry : networks.entrySet()) {
-      CompoundTag nTag = new CompoundTag();
-      CompoundTag nodesTag = new CompoundTag();
-      for (Map.Entry<String, Set<BlockPos>> nodesEntry : entry.getValue().nodes.entrySet()) {
-        long[] nodesArr = new long[nodesEntry.getValue().size()];
-        int j = 0;
-        for (BlockPos pos : nodesEntry.getValue()) nodesArr[j++] = pos.asLong();
-        nodesTag.putLongArray(nodesEntry.getKey(), nodesArr);
+    if (toSave.isEmpty() && toDelete.isEmpty()) return;
+
+    int saved = 0;
+    int deleted = 0;
+
+    for (UUID networkId : toSave) {
+      CrateNetwork network = networks.get(networkId);
+      if (network != null && !network.isEmpty()) {
+        fileManager.saveNetwork(networkId, network, this);
+        saved++;
       }
-      nTag.put("nodes", nodesTag);
-      networksTag.put(entry.getKey().toString(), nTag);
-    }
-    nbt.put("networks", networksTag);
-
-    // Save paletted globalStorage
-    List<ItemVariant> palette = new ArrayList<>();
-    Map<ItemVariant, Integer> variantToIdx = new HashMap<>();
-    long[] gsPosArr = new long[globalStorage.size()];
-    int[] gsIdxArr = new int[globalStorage.size()];
-    int[] gsCountArr = new int[globalStorage.size()];
-    int k = 0;
-    for (Map.Entry<BlockPos, CrateSlotComponent> entry : globalStorage.entrySet()) {
-      gsPosArr[k] = entry.getKey().asLong();
-      gsIdxArr[k] = variantToIdx.computeIfAbsent(entry.getValue().item(), v -> {
-        palette.add(v);
-        return palette.size() - 1;
-      });
-      gsCountArr[k] = entry.getValue().count();
-      k++;
     }
 
-    ListTag paletteTag = new ListTag();
-    for (ItemVariant variant : palette) {
-      ItemVariant.CODEC.encodeStart(NbtOps.INSTANCE, variant).result().ifPresent(paletteTag::add);
+    for (UUID networkId : toDelete) {
+      fileManager.deleteNetwork(networkId);
+      deleted++;
     }
 
-    nbt.put("gs_palette_v", paletteTag);
-    nbt.putLongArray("gs_pos", gsPosArr);
-    nbt.putIntArray("gs_idx", gsIdxArr);
-    nbt.putIntArray("gs_count", gsCountArr);
+    if (saved > 0 || deleted > 0) {
+      Constants.LOG.debug("Saved {} networks, deleted {} networks", saved, deleted);
+    }
+  }
 
-    return nbt;
+  /**
+   * Shutdown async executor and save any pending changes.
+   */
+  public void shutdown() {
+    asyncRebuilder.shutdown();
+  }
+
+  /**
+   * Check if a network is currently undergoing async rebuild.
+   */
+  public boolean isNetworkLocked(UUID networkId) {
+    return networksUndergoingRebuild.contains(networkId);
   }
 
   public boolean isRegistered(BlockPos pos) {
@@ -207,6 +145,7 @@ public class CrateNetworkManager extends SavedData {
 
   public void onBlockAdded(Level level, BlockPos pos, BlockState state) {
     if (level.isClientSide()) return;
+    if (level != this.serverLevel) return; // Dimension guard: only manage blocks in our dimension
     String type = getType(state);
     if (type == null) return;
 
@@ -221,7 +160,10 @@ public class CrateNetworkManager extends SavedData {
     Set<UUID> adjacentNetworks = new HashSet<>();
     for (Direction dir : Direction.values()) {
       UUID neighborId = blockToNetwork.get(pos.relative(dir));
-      if (neighborId != null && networks.containsKey(neighborId)) adjacentNetworks.add(neighborId);
+      /* Don't merge with networks currently rebuilding to prevent corruption */
+      if (neighborId != null && networks.containsKey(neighborId) && !networksUndergoingRebuild.contains(neighborId)) {
+        adjacentNetworks.add(neighborId);
+      }
     }
 
     UUID networkId;
@@ -241,12 +183,13 @@ public class CrateNetworkManager extends SavedData {
     network.nodes.computeIfAbsent(type, k -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(pos);
     network.invalidateIndex();
 
-    setDirty();
+    dirtyNetworks.add(networkId);
     notifyStations(level, networkId);
   }
 
   public void onBlockRemoved(Level level, BlockPos pos) {
     if (level.isClientSide()) return;
+    if (level != this.serverLevel) return; // Dimension guard
     UUID networkId = blockToNetwork.remove(pos);
     if (networkId == null) return;
 
@@ -259,14 +202,18 @@ public class CrateNetworkManager extends SavedData {
 
     if (network != null && network.isEmpty()) {
       networks.remove(networkId);
+      networksToDelete.add(networkId);
     } else if (network != null) {
-      // Only rebuild network if split is likely
-      if (shouldCheckForSplit(level, pos, network)) {
-        rebuildNetwork(level, networkId, pos);
+      if (networksUndergoingRebuild.contains(networkId)) return;
+      dirtyNetworks.add(networkId);
+
+      if (shouldCheckForSplit(level, pos, network) && level instanceof ServerLevel serverLevel) {
+        networksUndergoingRebuild.add(networkId);
+        asyncRebuilder.submitRebuild(serverLevel, networkId, network, pos, result -> {
+          applyRebuildResults(serverLevel, result);
+        });
       }
     }
-
-    setDirty();
   }
 
   private boolean shouldCheckForSplit(Level level, BlockPos pos, CrateNetwork network) {
@@ -299,51 +246,42 @@ public class CrateNetworkManager extends SavedData {
     });
   }
 
-  private void rebuildNetwork(Level level, UUID networkId, BlockPos removedPos) {
-    CrateNetwork oldNetwork = networks.remove(networkId);
-    if (oldNetwork == null) return;
+  /**
+   * Apply rebuild results from async thread on the main thread.
+   */
+  private void applyRebuildResults(ServerLevel level, AsyncNetworkRebuilder.RebuildResult result) {
+    UUID oldNetworkId = result.oldNetworkId();
 
-    Set<BlockPos> remainingBlocks = new HashSet<>();
-    oldNetwork.nodes.values().forEach(remainingBlocks::addAll);
+    networks.remove(oldNetworkId);
+    networksToDelete.add(oldNetworkId);
 
-    while (!remainingBlocks.isEmpty()) {
-      BlockPos root = remainingBlocks.iterator().next();
+    for (Map<String, Set<BlockPos>> networkNodes : result.newNetworkNodes()) {
       UUID newId = UUID.randomUUID();
       CrateNetwork newNetwork = new CrateNetwork(newId);
-      networks.put(newId, newNetwork);
 
-      Queue<BlockPos> todo = new LinkedList<>();
-      todo.add(root);
-      remainingBlocks.remove(root);
+      for (Map.Entry<String, Set<BlockPos>> entry : networkNodes.entrySet()) {
+        Set<BlockPos> posSet = Collections.newSetFromMap(new ConcurrentHashMap<>());
+        posSet.addAll(entry.getValue());
+        newNetwork.nodes.put(entry.getKey(), posSet);
 
-      while (!todo.isEmpty()) {
-        BlockPos current = todo.poll();
-        blockToNetwork.put(current, newId);
-
-        for (Map.Entry<String, Set<BlockPos>> entry : oldNetwork.nodes.entrySet()) {
-          if (entry.getValue().contains(current)) {
-            newNetwork.nodes.computeIfAbsent(entry.getKey(), k -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(current);
-            break;
-          }
-        }
-
-        for (Direction dir : Direction.values()) {
-          BlockPos neighbor = current.relative(dir);
-          if (remainingBlocks.contains(neighbor)) {
-            todo.add(neighbor);
-            remainingBlocks.remove(neighbor);
-          }
+        for (BlockPos pos : entry.getValue()) {
+          blockToNetwork.put(pos, newId);
         }
       }
+
+      networks.put(newId, newNetwork);
+      dirtyNetworks.add(newId);
       notifyStations(level, newId);
     }
+
+    networksUndergoingRebuild.remove(oldNetworkId); // Unlock Network
   }
 
   public void updateStorage(Level level, BlockPos pos, CrateSlotComponent component) {
     if (level.isClientSide()) return;
+    if (level != this.serverLevel) return; // Dimension guard
 
     CrateSlotComponent old = globalStorage.put(pos, component);
-    setDirty();
 
     UUID networkId = blockToNetwork.get(pos);
     if (networkId != null) {
@@ -355,8 +293,8 @@ public class CrateNetworkManager extends SavedData {
           return;
         }
 
-        // Incremental index update when contents change
         network.updateItemIncremental(old != null ? old.item() : null, component.item(), pos);
+        dirtyNetworks.add(networkId);
         notifyStations(level, networkId);
       }
     }
@@ -371,24 +309,36 @@ public class CrateNetworkManager extends SavedData {
   }
 
   public void tick(Level level) {
-    if (pendingStationUpdates.isEmpty()) return;
+    if (pendingStationUpdates.isEmpty() && dirtyNetworks.isEmpty()) return;
 
-    for (UUID networkId : pendingStationUpdates) {
-      CrateNetwork network = networks.get(networkId);
-      if (network == null) continue;
-      Set<BlockPos> stations = network.nodes.get("station");
-      if (stations == null) continue;
+    /* Notify stations about network changes */
+    if (!pendingStationUpdates.isEmpty()) {
+      for (UUID networkId : pendingStationUpdates) {
+        CrateNetwork network = networks.get(networkId);
+        if (network == null) continue;
+        Set<BlockPos> stations = network.nodes.get("station");
+        if (stations == null) continue;
 
-      for (BlockPos stationPos : stations) {
-        if (level.isLoaded(stationPos)) {
-          var be = level.getBlockEntity(stationPos);
-          if (be instanceof NetworkNode node) {
-            node.markCacheForUpdate();
+        for (BlockPos stationPos : stations) {
+          if (level.isLoaded(stationPos)) {
+            var be = level.getBlockEntity(stationPos);
+            if (be instanceof NetworkNode node) {
+              node.markCacheForUpdate();
+            }
           }
         }
       }
+      pendingStationUpdates.clear();
     }
-    pendingStationUpdates.clear();
+
+    /* Periodic autosave with per-manager randomized interval */
+    if (level instanceof ServerLevel serverLevel && (!dirtyNetworks.isEmpty() || !networksToDelete.isEmpty())) {
+      long currentTick = serverLevel.getGameTime();
+      if (currentTick - lastSaveTick >= saveInterval) {
+        save(serverLevel);
+        lastSaveTick = currentTick;
+      }
+    }
   }
 
   /**
@@ -401,7 +351,9 @@ public class CrateNetworkManager extends SavedData {
    */
   public List<BlockPos> findCratesForItem(BlockPos stationPos, ItemVariant variant) {
     CrateNetwork network = getNetworkFor(stationPos);
-    if (network == null) return List.of();
+    if (network == null || networksUndergoingRebuild.contains(network.id)) {
+      return List.of(); // Return empty if network deleted or rebuilding
+    }
     return network.findCratesForItem(variant, stationPos, this);
   }
 
@@ -445,12 +397,22 @@ public class CrateNetworkManager extends SavedData {
     int healed = orphans.size() + emptyNetworks.size();
     if (healed > 0) {
       Constants.LOG.warn("Healed {} network issues ({} orphaned blocks, {} empty networks)", healed, orphans.size(), emptyNetworks.size());
-      setDirty();
+      orphans.forEach(pos -> {
+        UUID networkId = blockToNetwork.get(pos);
+        if (networkId != null) dirtyNetworks.add(networkId);
+      });
+      dirtyNetworks.addAll(emptyNetworks);
     }
 
     return healed;
   }
 
+  /**
+   * Recalculates networks in the given area by removing and re-adding all blocks.
+   * This fixes orphaned blocks and rebuilds network topology correctly.
+   * <p>
+   * Removes all blocks first, then adds them back, to prevent fragmentation.
+   */
   public int recalculateArea(ServerLevel level, BlockPos pos1, BlockPos pos2) {
     int x1 = Math.min(pos1.getX(), pos2.getX());
     int y1 = Math.min(pos1.getY(), pos2.getY());
@@ -459,7 +421,9 @@ public class CrateNetworkManager extends SavedData {
     int y2 = Math.max(pos1.getY(), pos2.getY());
     int z2 = Math.max(pos1.getZ(), pos2.getZ());
 
-    int count = 0;
+    List<BlockPos> crateBlocks = new ArrayList<>();
+    Map<BlockPos, BlockState> blockStates = new HashMap<>();
+
     for (int x = x1; x <= x2; x++) {
       for (int y = y1; y <= y2; y++) {
         for (int z = z1; z <= z2; z++) {
@@ -467,21 +431,124 @@ public class CrateNetworkManager extends SavedData {
           if (level.isLoaded(p)) {
             BlockState state = level.getBlockState(p);
             if (getType(state) != null) {
-              // Force re-registration
-              onBlockRemoved(level, p);
-              onBlockAdded(level, p, state);
-
-              // Refresh storage info if it's a crate - will fix valid crates showing as empty in network map
-              var be = level.getBlockEntity(p);
-              if (be instanceof CrateBlockEntity crate) {
-                updateStorage(level, p, crate.storage.toComponent());
-              }
-              count++;
+              crateBlocks.add(p);
+              blockStates.put(p, state);
             }
           }
         }
       }
     }
+
+    if (crateBlocks.isEmpty()) {
+      return 0;
+    }
+
+    Set<UUID> affectedNetworks = new HashSet<>();
+    for (BlockPos p : crateBlocks) {
+      UUID networkId = blockToNetwork.get(p);
+      if (networkId != null) {
+        affectedNetworks.add(networkId);
+      }
+      blockToNetwork.remove(p);
+      globalStorage.remove(p);
+    }
+
+    // Clean up affected network node sets
+    for (UUID networkId : affectedNetworks) {
+      CrateNetwork network = networks.get(networkId);
+      if (network != null) {
+        for (BlockPos p : crateBlocks) {
+          network.nodes.values().forEach(set -> set.remove(p));
+        }
+        // Remove network if now empty
+        if (network.isEmpty()) {
+          networks.remove(networkId);
+          networksToDelete.add(networkId);
+        } else {
+          network.invalidateIndex();
+          dirtyNetworks.add(networkId);
+        }
+      }
+    }
+
+    // Re-add all blocks and automatically merge them into correct networks
+    for (BlockPos p : crateBlocks) {
+      BlockState state = blockStates.get(p);
+      onBlockAdded(level, p, state);
+
+      // Refresh storage info if block is a crate
+      var be = level.getBlockEntity(p);
+      if (be instanceof CrateBlockEntity crate) {
+        updateStorage(level, p, crate.storage.toComponent());
+      }
+    }
+
+    Constants.LOG.info("Recalculated {} blocks in area", crateBlocks.size());
+    return crateBlocks.size();
+  }
+
+  /**
+   * Purge networks that have no valid blocks in the loaded world.
+   * This cleans up orphaned network files from old data or bugs.
+   */
+  public int purgeOrphanedNetworks(ServerLevel level) {
+    List<UUID> toPurge = new ArrayList<>();
+
+    for (Map.Entry<UUID, CrateNetwork> entry : networks.entrySet()) {
+      UUID networkId = entry.getKey();
+      CrateNetwork network = entry.getValue();
+
+      // Check if any block in this network actually exists in the world
+      boolean hasValidBlock = false;
+      for (Set<BlockPos> positions : network.nodes.values()) {
+        for (BlockPos pos : positions) {
+          if (level.isLoaded(pos)) {
+            BlockState state = level.getBlockState(pos);
+            if (getType(state) != null) {
+              hasValidBlock = true;
+              break;
+            }
+          }
+        }
+        if (hasValidBlock) break;
+      }
+
+      if (!hasValidBlock) {
+        toPurge.add(networkId);
+      }
+    }
+
+    // Remove orphaned networks
+    for (UUID networkId : toPurge) {
+      networks.remove(networkId);
+      networksToDelete.add(networkId);
+      Constants.LOG.info("Purged orphaned network {}", networkId);
+    }
+
+    if (!toPurge.isEmpty()) {
+      Constants.LOG.warn("Purged {} orphaned networks", toPurge.size());
+    }
+
+    return toPurge.size();
+  }
+
+  /**
+   * THIS METHOD REMOVES EVERY EXISTING NETWORK!!!!!!!!
+   * Delete ALL networks and mark all files for deletion.
+   * Used when operators want to rebuild networks from scratch via recalculate command.
+   */
+  public int resetAllNetworks() {
+    int count = networks.size();
+
+    networksToDelete.addAll(networks.keySet());
+    networks.clear();
+    blockToNetwork.clear();
+    globalStorage.clear();
+    dirtyNetworks.clear();
+    networksUndergoingRebuild.clear();
+    pendingStationUpdates.clear();
+
+    Constants.LOG.warn("RESET: Deleted all {} networks. Use recalculate to rebuild.", count);
     return count;
   }
 

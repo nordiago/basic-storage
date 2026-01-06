@@ -146,6 +146,17 @@ public class CrateNetwork {
     return false;
   }
 
+  /**
+   * Create an immutable snapshot of the network nodes for async processing.
+   */
+  public Map<String, Set<BlockPos>> createSnapshot() {
+    Map<String, Set<BlockPos>> snapshot = new HashMap<>(nodes.size());
+    for (Map.Entry<String, Set<BlockPos>> entry : nodes.entrySet()) {
+      snapshot.put(entry.getKey(), new HashSet<>(entry.getValue()));
+    }
+    return snapshot;
+  }
+
   public boolean isEmpty() {
     if (nodes.isEmpty()) return true;
     for (Set<BlockPos> set : nodes.values()) {

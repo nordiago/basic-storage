@@ -36,13 +36,17 @@ public class BasicStorage implements ModInitializer {
       ServerPlayNetworking.send(handler.getPlayer(), new ConfigSyncPayload(serverBreakWithAxeOnly, serverCanBreakIfFull));
     });
 
-    ServerWorldEvents.UNLOAD.register((server, world) -> {
-      CrateNetworkManager.clearCache(world);
-    });
-
     ServerTickEvents.END_WORLD_TICK.register(world -> {
       if (world instanceof ServerLevel serverLevel) {
         CrateNetworkManager.get(serverLevel).tick(serverLevel);
+      }
+    });
+
+    ServerWorldEvents.UNLOAD.register((server, world) -> {
+      if (world instanceof ServerLevel serverLevel) {
+        CrateNetworkManager manager = CrateNetworkManager.get(serverLevel);
+        manager.save(serverLevel);
+        CrateNetworkManager.clearCache(serverLevel);
       }
     });
 
