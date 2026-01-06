@@ -34,5 +34,25 @@ public class BasicStorageSodiumIntegration implements ConfigEntryPoint {
             })
             .setDefaultValue(true)
             .setStorageHandler(BasicStorageClientConfig.INSTANCE::save)));
+    modOptions.addPage(builder.createOptionPage()
+        .setName(Component.translatable("basicstorage.options.accessibility.title"))
+        .addOption(builder.createBooleanOption(Constants.ID("crate_station_sound_effects"))
+            .setName(Component.translatable("basicstorage.options.accessibility.crate_station_sound_effects"))
+            .setTooltip(Component.translatable("basicstorage.options.accessibility.crate_station_sound_effects.tooltip"))
+            .setImpact(OptionImpact.LOW)
+            .setBinding(new OptionBinding<>() {
+              @Override
+              public void save(Boolean value) {
+                BasicStorageClientConfig.INSTANCE.setCrateStationSoundEffects(value);
+                BasicStorageClientConfig.INSTANCE.save();
+              }
+
+              @Override
+              public Boolean load() {
+                return BasicStorageClientConfig.INSTANCE.crateStationSoundEffects();
+              }
+            })
+            .setDefaultValue(true)
+            .setStorageHandler(BasicStorageClientConfig.INSTANCE::save)));
   }
 }

@@ -30,5 +30,8 @@
   "advancement.basicstorage.nodal_networking.desc": "Expand your Station's reach with Crate Connectors",
   "basicstorage.options.performance.title": "Performance",
   "basicstorage.options.performance.show_crate_station_beams": "Show crate station beams",
-  "basicstorage.options.performance.show_crate_station_beams.tooltip": "Crate Stations show particle beams when distributing items. If you have many items being distributed, disabling this option may improve your performance."
+  "basicstorage.options.performance.show_crate_station_beams.tooltip": "Crate Stations show particle beams when distributing items. If you have many items being distributed, disabling this option may improve your performance.",
+  "basicstorage.options.accessibility.title": "Accessibility",
+  "basicstorage.options.accessibility.crate_station_sound_effects": "Crate station sound effects",
+  "basicstorage.options.accessibility.crate_station_sound_effects.tooltip": "Crate stations play sound effects when distributing items. Disable just those sound effects by unchecking this setting."
 }

@@ -182,7 +182,7 @@ public class ParticleBeamRendering {
     activeBeamSnapshots.computeIfAbsent(to, k -> new ArrayList<>()).add(new ActiveBeam(BEAM_DURATION_TICKS + delay, amount));
     activeBeams.add(beam);
 
-    if (playSound) {
+    if (playSound && BasicStorageClientConfig.INSTANCE.crateStationSoundEffects()) {
       Minecraft.getInstance().getSoundManager().play(new WhooshSoundInstance(SoundRegistry.WHOOSH, beam.beamVectors, BEAM_DURATION_TICKS, delay, level.random));
     }
   }
@@ -258,7 +258,9 @@ public class ParticleBeamRendering {
 
     public boolean tick() {
       if (age == delay) {
-        level.playLocalSound(originPos.getX() + 0.5, originPos.getY() + 0.5, originPos.getZ() + 0.5, SoundEvents.ENDER_PEARL_THROW, SoundSource.BLOCKS, 0.05f, 1.5f + level.random.nextFloat() * 0.5f, false);
+        if (BasicStorageClientConfig.INSTANCE.crateStationSoundEffects()) {
+          level.playLocalSound(originPos.getX() + 0.5, originPos.getY() + 0.5, originPos.getZ() + 0.5, SoundEvents.ENDER_PEARL_THROW, SoundSource.BLOCKS, 0.05f, 1.5f + level.random.nextFloat() * 0.5f, false);
+        }
       }
 
       if (age < delay) {

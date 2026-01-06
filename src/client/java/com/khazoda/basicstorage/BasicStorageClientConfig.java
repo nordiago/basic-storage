@@ -31,6 +31,11 @@ public class BasicStorageClientConfig {
       properties.setProperty("show_crate_station_beams", "true");
       save();
     }
+
+    if (!properties.containsKey("crate_station_sound_effects")) {
+      properties.setProperty("crate_station_sound_effects", "true");
+      save();
+    }
   }
 
   public void save() {
@@ -40,6 +45,8 @@ public class BasicStorageClientConfig {
         writer.write("# Basic Storage Client Configuration\n\n");
         writer.write("# If true, crate station beams will be rendered\n");
         writer.write("show_crate_station_beams=" + properties.getProperty("show_crate_station_beams", "true") + "\n");
+        writer.write("# If true, crate stations will play sound effects during operation.\n");
+        writer.write("crate_station_sound_effects=" + properties.getProperty("crate_station_sound_effects", "true") + "\n");
       }
     } catch (IOException e) {
       // ignore save errors
@@ -52,5 +59,13 @@ public class BasicStorageClientConfig {
 
   public void setShowCrateStationBeams(boolean value) {
     properties.setProperty("show_crate_station_beams", String.valueOf(value));
+  }
+
+  public boolean crateStationSoundEffects() {
+    return Boolean.parseBoolean(properties.getProperty("crate_station_sound_effects", "true"));
+  }
+
+  public void setCrateStationSoundEffects(boolean value) {
+    properties.setProperty("crate_station_sound_effects", String.valueOf(value));
   }
 }
