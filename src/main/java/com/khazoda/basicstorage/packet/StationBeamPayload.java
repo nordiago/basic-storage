@@ -15,7 +15,7 @@ public record StationBeamPayload(BlockPos origin, List<Target> targets) implemen
   public record Target(BlockPos pos, int amount) {
   }
 
-  public static final CustomPacketPayload.Type<StationBeamPayload> ID = new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(Constants.NAMESPACE, "station_beam"));
+  public static final CustomPacketPayload.Type<StationBeamPayload> ID = new CustomPacketPayload.Type<>(Constants.ID("station_beam"));
 
   public static final StreamCodec<ByteBuf, StationBeamPayload> CODEC = StreamCodec.of((buf, value) -> {
     FriendlyByteBuf friendlyBuf = new FriendlyByteBuf(buf);

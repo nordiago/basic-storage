@@ -10,13 +10,12 @@ import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.base.FilteringStorage;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 
 public class BlockEntityRegistry {
 
-  public static final BlockEntityType<CrateBlockEntity> CRATE_BLOCK_ENTITY = Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, Identifier.fromNamespaceAndPath(Constants.NAMESPACE, "crate_block_entity"), FabricBlockEntityTypeBuilder.create(CrateBlockEntity::new, BlockRegistry.CRATE_BLOCK).build());
-  public static final BlockEntityType<CrateStationBlockEntity> CRATE_STATION_BLOCK_ENTITY = Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, Identifier.fromNamespaceAndPath(Constants.NAMESPACE, "crate_station_block_entity"), FabricBlockEntityTypeBuilder.create(CrateStationBlockEntity::new, BlockRegistry.CRATE_STATION_BLOCK).build());
+  public static final BlockEntityType<CrateBlockEntity> CRATE_BLOCK_ENTITY = Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, Constants.ID("crate_block_entity"), FabricBlockEntityTypeBuilder.create(CrateBlockEntity::new, BlockRegistry.CRATE_BLOCK).build());
+  public static final BlockEntityType<CrateStationBlockEntity> CRATE_STATION_BLOCK_ENTITY = Registry.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, Constants.ID("crate_station_block_entity"), FabricBlockEntityTypeBuilder.create(CrateStationBlockEntity::new, BlockRegistry.CRATE_STATION_BLOCK).build());
 
 
   public static void init() {
