@@ -30,8 +30,8 @@ public class BasicStorage implements ModInitializer {
     PayloadTypeRegistry.playS2C().register(ConfigSyncPayload.ID, ConfigSyncPayload.CODEC);
     PayloadTypeRegistry.playS2C().register(StationBeamPayload.ID, StationBeamPayload.CODEC);
     ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-      boolean serverBreakWithAxeOnly = BasicStorageConfig.getInstance().breakWithAxeOnly();
-      boolean serverCanBreakIfFull = BasicStorageConfig.getInstance().canBreakIfFull();
+      boolean serverBreakWithAxeOnly = BasicStorageConfig.INSTANCE.breakWithAxeOnly();
+      boolean serverCanBreakIfFull = BasicStorageConfig.INSTANCE.canBreakIfFull();
 
       ServerPlayNetworking.send(handler.getPlayer(), new ConfigSyncPayload(serverBreakWithAxeOnly, serverCanBreakIfFull));
     });
@@ -49,7 +49,7 @@ public class BasicStorage implements ModInitializer {
     CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
       com.khazoda.basicstorage.command.CrateCommand.register(dispatcher);
     });
-    BasicStorageConfig.getInstance().load();
+    BasicStorageConfig.INSTANCE.load();
     Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, Identifier.parse(Constants.NAMESPACE), BW_ITEMGROUP);
     BlockRegistry.init();
     BlockEntityRegistry.init();

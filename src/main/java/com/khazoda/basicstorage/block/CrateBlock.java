@@ -121,7 +121,7 @@ public class CrateBlock extends BaseEntityBlock {
 
   @Override
   public float getExplosionResistance() {
-    if (BasicStorageConfig.getInstance().breakWithAxeOnly() || !BasicStorageConfig.getInstance().canBreakIfFull()) {
+    if (BasicStorageConfig.INSTANCE.breakWithAxeOnly() || !BasicStorageConfig.INSTANCE.canBreakIfFull()) {
       return 3600000.0f;
     }
     return super.getExplosionResistance();
@@ -130,11 +130,11 @@ public class CrateBlock extends BaseEntityBlock {
   @Override
   protected float getDestroyProgress(BlockState state, Player player, BlockGetter world, BlockPos pos) {
     if (!player.mayBuild()) return 0.0f;
-    if (!BasicStorageConfig.getInstance().canBreakIfFull()) {
+    if (!BasicStorageConfig.INSTANCE.canBreakIfFull()) {
       BlockEntity be = world.getBlockEntity(pos);
       if (be instanceof CrateBlockEntity cbe && !cbe.storage.isBlank()) return 0.0f;
     }
-    if (BasicStorageConfig.getInstance().breakWithAxeOnly()) {
+    if (BasicStorageConfig.INSTANCE.breakWithAxeOnly()) {
       boolean usingAxe = player.getMainHandItem().is(ItemTags.AXES);
       if (!usingAxe) return 0.0f;
     }

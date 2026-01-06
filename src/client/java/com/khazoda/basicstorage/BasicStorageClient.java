@@ -24,11 +24,13 @@ public class BasicStorageClient implements ClientModInitializer {
 
   @Override
   public void onInitializeClient() {
+    BasicStorageClientConfig.INSTANCE.load();
+
     /* Load server's config */
     ClientPlayNetworking.registerGlobalReceiver(ConfigSyncPayload.ID, (payload, context) -> {
       context.client().execute(() -> {
-        BasicStorageConfig.getInstance().setBreakWithAxeOnly(payload.breakWithAxeOnly());
-        BasicStorageConfig.getInstance().setCanBreakIfFull(payload.canBreakIfFull());
+        BasicStorageConfig.INSTANCE.setBreakWithAxeOnly(payload.breakWithAxeOnly());
+        BasicStorageConfig.INSTANCE.setCanBreakIfFull(payload.canBreakIfFull());
         Constants.LOG.info("Synced config from server: Axe Only = {}", payload.breakWithAxeOnly());
         Constants.LOG.info("Synced config from server: Can Break If Full = {}", payload.canBreakIfFull());
       });
@@ -38,7 +40,7 @@ public class BasicStorageClient implements ClientModInitializer {
 
     /* Revert to client's config */
     ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-      BasicStorageConfig.getInstance().load();
+      BasicStorageConfig.INSTANCE.load();
     });
 
     /* Register crate item contents renderer */
