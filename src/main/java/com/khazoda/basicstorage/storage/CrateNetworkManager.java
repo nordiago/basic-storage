@@ -320,11 +320,9 @@ public class CrateNetworkManager {
         if (stations == null) continue;
 
         for (BlockPos stationPos : stations) {
-          if (level.isLoaded(stationPos)) {
-            var be = level.getBlockEntity(stationPos);
-            if (be instanceof NetworkNode node) {
-              node.markCacheForUpdate();
-            }
+          var be = level.getBlockEntity(stationPos);
+          if (be instanceof NetworkNode node) {
+            node.markCacheForUpdate();
           }
         }
       }

@@ -3,6 +3,7 @@ package com.khazoda.basicstorage.block;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.registry.CriterionRegistry;
 import com.khazoda.basicstorage.registry.ParticleRegistry;
+import com.khazoda.basicstorage.storage.CrateNetworkManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -51,6 +52,12 @@ public class CrateStationFrameBlock extends Block {
         }
         if (!player.getAbilities().instabuild) {
           stack.shrink(1);
+        }
+        if (world instanceof ServerLevel serverLevel) {
+          BlockState newState = world.getBlockState(pos);
+          if (newState.is(BlockRegistry.CRATE_STATION_BLOCK)) {
+            CrateNetworkManager.get(serverLevel).onBlockAdded(world, pos, newState);
+          }
         }
       }
       return InteractionResult.SUCCESS;

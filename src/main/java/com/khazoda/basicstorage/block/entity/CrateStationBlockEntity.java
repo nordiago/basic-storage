@@ -121,8 +121,6 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
       if (!compatibleCrates.isEmpty()) {
         // Insert items into compatible crates
         for (BlockPos cratePos : compatibleCrates) {
-          if (!serverLevel.isLoaded(cratePos)) continue;
-
           /*
            * Ensure crate is actually registered in a network
            * Prevents sending to disconnected crates after reset command
