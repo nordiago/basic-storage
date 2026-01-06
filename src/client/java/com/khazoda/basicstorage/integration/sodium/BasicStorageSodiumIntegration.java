@@ -9,9 +9,14 @@ import net.caffeinemc.mods.sodium.api.config.structure.ConfigBuilder;
 import net.minecraft.network.chat.Component;
 
 public class BasicStorageSodiumIntegration implements ConfigEntryPoint {
+
   @Override
   public void registerConfigLate(ConfigBuilder builder) {
     var modOptions = builder.registerOwnModOptions()
+        .setNonTintedIcon(Constants.ID("icon.png"))
+        .setColorTheme(builder.createColorTheme()
+            .setBaseThemeRGB(0xFFFFDD99)
+        )
         .setName("Basic Storage");
 
     modOptions.addPage(builder.createOptionPage()
