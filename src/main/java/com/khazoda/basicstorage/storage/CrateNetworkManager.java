@@ -256,6 +256,24 @@ public class CrateNetworkManager {
     networksToDelete.add(oldNetworkId);
 
     for (Map<String, Set<BlockPos>> networkNodes : result.newNetworkNodes()) {
+      /* Verifies at least one block from this network still exists and is valid
+       * This prevents creating ghost networks from completely stale rebuild data */
+      boolean hasValidBlock = false;
+      for (Set<BlockPos> positions : networkNodes.values()) {
+        for (BlockPos pos : positions) {
+          if (level.isLoaded(pos) && getType(level.getBlockState(pos)) != null) {
+            hasValidBlock = true;
+            break;
+          }
+        }
+        if (hasValidBlock) break;
+      }
+
+      if (!hasValidBlock) {
+        Constants.LOG.debug("Skipped creating network from stale rebuild data (no valid blocks found)");
+        continue; // Skip this network entirely
+      }
+
       UUID newId = UUID.randomUUID();
       CrateNetwork newNetwork = new CrateNetwork(newId);
 

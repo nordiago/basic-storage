@@ -170,6 +170,12 @@ public class ParticleBeamRendering {
   }
 
   private void createBeam(ClientLevel level, BlockPos from, BlockPos to, int amount, int delay, boolean playSound) {
+    /* Validate positions are within reasonable range to prevent client lag from possible buggy packet */
+    double distanceSq = from.distSqr(to);
+    if (distanceSq > 512 * 512) {
+      return; // Silently ignore overly distant beams
+    }
+
     Beam beam = new Beam(level, Vec3.atCenterOf(from), Vec3.atCenterOf(to), BEAM_DURATION_TICKS, to, delay, from);
 
     /* Snapshot current count to prevent visual jumps until beam hits */
