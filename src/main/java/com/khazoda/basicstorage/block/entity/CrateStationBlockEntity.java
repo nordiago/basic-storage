@@ -371,7 +371,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
 
   @Override
   public boolean canTakeItemThroughFace(int index, ItemStack itemStack, Direction direction) {
-    return false;
+    return true;
   }
 
 
