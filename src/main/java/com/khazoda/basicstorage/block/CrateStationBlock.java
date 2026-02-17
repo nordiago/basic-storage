@@ -89,7 +89,9 @@ public class CrateStationBlock extends BaseEntityBlock {
     UseBlockCallback.EVENT.register((Player player, Level world, InteractionHand hand, BlockHitResult hit) -> {
       if (!world.getBlockState(hit.getBlockPos()).is(BlockRegistry.CRATE_STATION_BLOCK)) return InteractionResult.PASS;
       if (!player.mayBuild() || player.isSpectator()) return InteractionResult.PASS;
-      if (player.getItemInHand(hand).is(BlockRegistry.CRATE_BLOCK.asItem()) && player.isShiftKeyDown()) {
+      if ((player.getItemInHand(hand).is(BlockRegistry.CRATE_BLOCK.asItem())
+          || player.getItemInHand(hand).is(BlockRegistry.CRATE_CONNECTOR_BLOCK.asItem()))
+          && player.isShiftKeyDown()) {
         return InteractionResult.PASS;
       }
 
