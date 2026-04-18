@@ -18,19 +18,19 @@ public class CrateNetworkDebug {
       CrateNetworkManager manager = CrateNetworkManager.get((ServerLevel) world);
       CrateNetwork network = manager.getNetworkFor(pos);
       if (network != null) {
-        player.displayClientMessage(Component.literal("--- Network Diagnostics ---").withStyle(ChatFormatting.GOLD), false);
-        player.displayClientMessage(Component.literal("ID: ").withStyle(ChatFormatting.GRAY).append(Component.literal(network.id.toString()).withStyle(ChatFormatting.WHITE)), false);
-        player.displayClientMessage(Component.literal("Nodes: ").withStyle(ChatFormatting.GRAY).append(Component.literal(String.valueOf(network.size())).withStyle(ChatFormatting.GREEN)).append(Component.literal(" (").withStyle(ChatFormatting.DARK_GRAY)).append(Component.literal(network.crates().size() + " crates").withStyle(ChatFormatting.WHITE)).append(Component.literal(", ").withStyle(ChatFormatting.DARK_GRAY)).append(Component.literal(network.stations().size() + " stations").withStyle(ChatFormatting.WHITE)).append(Component.literal(", ").withStyle(ChatFormatting.DARK_GRAY)).append(Component.literal(network.connectors().size() + " connectors").withStyle(ChatFormatting.WHITE)).append(Component.literal(")").withStyle(ChatFormatting.DARK_GRAY)), false);
+        player.sendSystemMessage(Component.literal("--- Network Diagnostics ---").withStyle(ChatFormatting.GOLD));
+        player.sendSystemMessage(Component.literal("ID: ").withStyle(ChatFormatting.GRAY).append(Component.literal(network.id.toString()).withStyle(ChatFormatting.WHITE)));
+        player.sendSystemMessage(Component.literal("Nodes: ").withStyle(ChatFormatting.GRAY).append(Component.literal(String.valueOf(network.size())).withStyle(ChatFormatting.GREEN)).append(Component.literal(" (").withStyle(ChatFormatting.DARK_GRAY)).append(Component.literal(network.crates().size() + " crates").withStyle(ChatFormatting.WHITE)).append(Component.literal(", ").withStyle(ChatFormatting.DARK_GRAY)).append(Component.literal(network.stations().size() + " stations").withStyle(ChatFormatting.WHITE)).append(Component.literal(", ").withStyle(ChatFormatting.DARK_GRAY)).append(Component.literal(network.connectors().size() + " connectors").withStyle(ChatFormatting.WHITE)).append(Component.literal(")").withStyle(ChatFormatting.DARK_GRAY)));
         var stats = manager.getStats();
         if (world.getBlockState(pos).is(BlockRegistry.CRATE_BLOCK)) {
-          player.displayClientMessage(Component.literal("Global Stats: ").withStyle(ChatFormatting.GRAY).append(Component.literal(stats.networkCount() + " networks").withStyle(ChatFormatting.BLUE)).append(Component.literal(", ").withStyle(ChatFormatting.DARK_GRAY)).append(Component.literal(stats.totalCrates() + " total crates").withStyle(ChatFormatting.BLUE)), false);
+          player.sendSystemMessage(Component.literal("Global Stats: ").withStyle(ChatFormatting.GRAY).append(Component.literal(stats.networkCount() + " networks").withStyle(ChatFormatting.BLUE)).append(Component.literal(", ").withStyle(ChatFormatting.DARK_GRAY)).append(Component.literal(stats.totalCrates() + " total crates").withStyle(ChatFormatting.BLUE)));
         } else if (world.getBlockState(pos).is(BlockRegistry.CRATE_STATION_BLOCK)) {
-          player.displayClientMessage(Component.literal("Global Stats: ").withStyle(ChatFormatting.GRAY).append(Component.literal(stats.networkCount() + " networks").withStyle(ChatFormatting.BLUE)).append(Component.literal(", ").withStyle(ChatFormatting.DARK_GRAY)).append(Component.literal(stats.totalStations() + " total stations").withStyle(ChatFormatting.BLUE)), false);
+          player.sendSystemMessage(Component.literal("Global Stats: ").withStyle(ChatFormatting.GRAY).append(Component.literal(stats.networkCount() + " networks").withStyle(ChatFormatting.BLUE)).append(Component.literal(", ").withStyle(ChatFormatting.DARK_GRAY)).append(Component.literal(stats.totalStations() + " total stations").withStyle(ChatFormatting.BLUE)));
         } else if (world.getBlockState(pos).is(BlockRegistry.CRATE_CONNECTOR_BLOCK)) {
-          player.displayClientMessage(Component.literal("Global Stats: ").withStyle(ChatFormatting.GRAY).append(Component.literal(stats.networkCount() + " networks").withStyle(ChatFormatting.BLUE)).append(Component.literal(", ").withStyle(ChatFormatting.DARK_GRAY)).append(Component.literal((stats.totalNodes() - stats.totalCrates() - stats.totalStations()) + " total connectors").withStyle(ChatFormatting.BLUE)), false);
+          player.sendSystemMessage(Component.literal("Global Stats: ").withStyle(ChatFormatting.GRAY).append(Component.literal(stats.networkCount() + " networks").withStyle(ChatFormatting.BLUE)).append(Component.literal(", ").withStyle(ChatFormatting.DARK_GRAY)).append(Component.literal((stats.totalNodes() - stats.totalCrates() - stats.totalStations()) + " total connectors").withStyle(ChatFormatting.BLUE)));
         }
       } else {
-        player.displayClientMessage(Component.literal("No Network Detected").withStyle(ChatFormatting.RED), false);
+        player.sendSystemMessage(Component.literal("No Network Detected").withStyle(ChatFormatting.RED));
       }
       return true;
     }

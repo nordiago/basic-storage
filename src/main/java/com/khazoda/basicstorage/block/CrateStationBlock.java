@@ -128,7 +128,7 @@ public class CrateStationBlock extends BaseEntityBlock {
               /* Otherwise, show network connection details */
               message = Component.translatable("message.basicstorage.station.connected_valid_crate_count", connectedValidCrateCount).withColor(0xddff99).append(Component.literal(" | ").withColor(0xffffff)).append(Component.translatable("message.basicstorage.station.connected_empty_crate_count", connectedEmptyCrateCount).withColor(0xffefcd));
             }
-            player.displayClientMessage(message, true);
+            player.sendOverlayMessage(message);
           }
           return InteractionResult.PASS;
         }
@@ -137,7 +137,7 @@ public class CrateStationBlock extends BaseEntityBlock {
 
       if (!world.isClientSide()) {
         if (inserted <= 0) {
-          player.displayClientMessage(Component.translatable("message.basicstorage.station.no_matching_crates").withColor(0xFF9999), true);
+          player.sendOverlayMessage(Component.translatable("message.basicstorage.station.no_matching_crates").withColor(0xFF9999));
           world.playSound(null, pos, SoundRegistry.NO_MATCH, SoundSource.BLOCKS, 1.1f, 1f);
           return InteractionResult.CONSUME;
         }

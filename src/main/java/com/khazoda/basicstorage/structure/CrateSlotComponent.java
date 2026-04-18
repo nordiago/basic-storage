@@ -28,7 +28,7 @@ public record CrateSlotComponent(ItemVariant item, int count) implements Tooltip
    **/
   @Override
   public void addToTooltip(Item.TooltipContext context, Consumer<Component> textConsumer, TooltipFlag type, DataComponentGetter components) {
-    textConsumer.accept(Component.literal(this.item().getItem().getName().getString()).withColor(0xCCAA77));
+    textConsumer.accept(Component.literal(this.item().getItem().getName(this.item().toStack()).getString()).withColor(0xCCAA77));
     textConsumer.accept(Component.literal("x" + NumberFormatter.toFormattedNumber(this.count())).withColor(0xFFDD99));
   }
 }

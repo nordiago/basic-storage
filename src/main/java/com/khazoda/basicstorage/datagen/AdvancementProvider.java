@@ -3,7 +3,7 @@ package com.khazoda.basicstorage.datagen;
 import com.khazoda.basicstorage.Constants;
 import com.khazoda.basicstorage.registry.BlockRegistry;
 import com.khazoda.basicstorage.registry.CriterionRegistry;
-import net.fabricmc.fabric.api.datagen.v1.FabricDataOutput;
+import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricAdvancementProvider;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.AdvancementHolder;
@@ -18,7 +18,7 @@ import java.util.function.Consumer;
 
 public class AdvancementProvider extends FabricAdvancementProvider {
 
-  protected AdvancementProvider(FabricDataOutput output, CompletableFuture<HolderLookup.Provider> registryLookup) {
+  protected AdvancementProvider(FabricPackOutput output, CompletableFuture<HolderLookup.Provider> registryLookup) {
     super(output, registryLookup);
   }
 
