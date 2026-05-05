@@ -4,7 +4,7 @@ import com.khazoda.basicstorage.Constants;
 import com.khazoda.basicstorage.block.entity.CrateBlockEntity;
 import com.khazoda.basicstorage.block.entity.CrateStationBlockEntity;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
-import net.fabricmc.fabric.api.transfer.v1.item.InventoryStorage;
+import net.fabricmc.fabric.api.transfer.v1.item.ContainerStorage;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.base.FilteringStorage;
@@ -21,7 +21,7 @@ public class BlockEntityRegistry {
   public static void init() {
     /* Lets crates & stations work with hoppers and other item transfer */
     ItemStorage.SIDED.registerForBlockEntity((blockEntity, direction) -> blockEntity.storage, CRATE_BLOCK_ENTITY);
-    ItemStorage.SIDED.registerForBlockEntity((blockEntity, direction) -> new FilteringStorage<>(InventoryStorage.of(blockEntity, direction)) {
+    ItemStorage.SIDED.registerForBlockEntity((blockEntity, direction) -> new FilteringStorage<>(ContainerStorage.of(blockEntity, direction)) {
       @Override
       public boolean supportsExtraction() {
         return false;

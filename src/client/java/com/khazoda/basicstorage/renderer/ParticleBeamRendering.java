@@ -189,7 +189,7 @@ public class ParticleBeamRendering {
     activeBeams.add(beam);
 
     if (playSound && BasicStorageClientConfig.INSTANCE.crateStationSoundEffects()) {
-      Minecraft.getInstance().getSoundManager().play(new WhooshSoundInstance(SoundRegistry.WHOOSH, beam.beamVectors, BEAM_DURATION_TICKS, delay, level.random));
+      Minecraft.getInstance().getSoundManager().play(new WhooshSoundInstance(SoundRegistry.WHOOSH, beam.beamVectors, BEAM_DURATION_TICKS, delay, level.getRandom()));
     }
   }
 
@@ -265,7 +265,7 @@ public class ParticleBeamRendering {
     public boolean tick() {
       if (age == delay) {
         if (BasicStorageClientConfig.INSTANCE.crateStationSoundEffects()) {
-          level.playLocalSound(originPos.getX() + 0.5, originPos.getY() + 0.5, originPos.getZ() + 0.5, SoundEvents.ENDER_PEARL_THROW, SoundSource.BLOCKS, 0.05f, 1.5f + level.random.nextFloat() * 0.5f, false);
+          level.playLocalSound(originPos.getX() + 0.5, originPos.getY() + 0.5, originPos.getZ() + 0.5, SoundEvents.ENDER_PEARL_THROW, SoundSource.BLOCKS, 0.05f, 1.5f + level.getRandom().nextFloat() * 0.5f, false);
         }
       }
 
@@ -299,10 +299,10 @@ public class ParticleBeamRendering {
 
       for (int i = startStep; i < endStep; i++) {
         Vec3 pos = beamVectors[i];
-        if (level.random.nextFloat() < 0.05f) {
+        if (level.getRandom().nextFloat() < 0.05f) {
           level.addParticle(ParticleRegistry.TWINKLE, pos.x, pos.y, pos.z, 0.0, 0.0, 0.0);
         }
-        if (level.random.nextFloat() < 0.85f) {
+        if (level.getRandom().nextFloat() < 0.85f) {
           level.addParticle(ParticleRegistry.VOIDY, pos.x, pos.y, pos.z, 0.0, 0.0, 0.0);
         }
       }

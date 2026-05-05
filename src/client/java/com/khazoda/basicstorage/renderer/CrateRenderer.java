@@ -14,7 +14,6 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
 import net.minecraft.client.renderer.item.ItemModelResolver;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
-import net.minecraft.client.renderer.state.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -65,7 +64,7 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
         crateState.itemCount = 0;
         return;
       }
-      crateState.lightCoords = LevelRenderer.getLightColor(world, neighborPos);
+      crateState.lightCoords = LevelRenderer.getLightCoords(world, neighborPos);
     }
 
     if (be.storage.isResourceBlank()) {
@@ -110,7 +109,7 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
   }
 
   @Override
-  public void submit(CrateRenderState crateState, PoseStack matrices, SubmitNodeCollector queue, CameraRenderState camera) {
+  public void submit(CrateRenderState crateState, PoseStack matrices, SubmitNodeCollector queue, net.minecraft.client.renderer.state.level.CameraRenderState camera) {
     ItemStackRenderState itemState = crateState.itemRenderState;
 
     if (crateState.orientation == null) return;

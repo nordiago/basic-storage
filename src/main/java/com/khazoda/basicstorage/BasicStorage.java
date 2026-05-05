@@ -6,10 +6,10 @@ import com.khazoda.basicstorage.registry.*;
 import com.khazoda.basicstorage.storage.CrateNetworkManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLevelEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
-import net.fabricmc.fabric.api.item.v1.ComponentTooltipAppenderRegistry;
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
+import net.fabricmc.fabric.api.item.v1.ItemComponentTooltipProviderRegistry;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -27,8 +27,8 @@ public class BasicStorage implements ModInitializer {
 
   @Override
   public void onInitialize() {
-    PayloadTypeRegistry.playS2C().register(ConfigSyncPayload.ID, ConfigSyncPayload.CODEC);
-    PayloadTypeRegistry.playS2C().register(StationBeamPayload.ID, StationBeamPayload.CODEC);
+    PayloadTypeRegistry.clientboundPlay().register(ConfigSyncPayload.ID, ConfigSyncPayload.CODEC);
+    PayloadTypeRegistry.clientboundPlay().register(StationBeamPayload.ID, StationBeamPayload.CODEC);
     ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
       boolean serverBreakWithAxeOnly = BasicStorageConfig.INSTANCE.breakWithAxeOnly();
       boolean serverCanBreakIfFull = BasicStorageConfig.INSTANCE.canBreakIfFull();
@@ -36,13 +36,13 @@ public class BasicStorage implements ModInitializer {
       ServerPlayNetworking.send(handler.getPlayer(), new ConfigSyncPayload(serverBreakWithAxeOnly, serverCanBreakIfFull));
     });
 
-    ServerTickEvents.END_WORLD_TICK.register(world -> {
+    ServerTickEvents.END_LEVEL_TICK.register(world -> {
       if (world instanceof ServerLevel serverLevel) {
         CrateNetworkManager.get(serverLevel).tick(serverLevel);
       }
     });
 
-    ServerWorldEvents.UNLOAD.register((server, world) -> {
+    ServerLevelEvents.UNLOAD.register((server, world) -> {
       if (world instanceof ServerLevel serverLevel) {
         CrateNetworkManager manager = CrateNetworkManager.get(serverLevel);
         manager.save(serverLevel);
@@ -63,10 +63,10 @@ public class BasicStorage implements ModInitializer {
     DataComponentRegistry.init();
     CriterionRegistry.init();
 
-    ComponentTooltipAppenderRegistry.addFirst(DataComponentRegistry.CRATE_CONTENTS);
+    ItemComponentTooltipProviderRegistry.addFirst(DataComponentRegistry.CRATE_CONTENTS);
 
-    ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.REDSTONE_BLOCKS).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_STATION_FRAME_BLOCK, BlockRegistry.CRATE_STATION_BLOCK, BlockRegistry.CRATE_CONNECTOR_BLOCK));
-    ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.FUNCTIONAL_BLOCKS).register(content -> content.addAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_STATION_FRAME_BLOCK, BlockRegistry.CRATE_STATION_BLOCK, BlockRegistry.CRATE_CONNECTOR_BLOCK));
+    CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.REDSTONE_BLOCKS).register(content -> content.insertAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_STATION_FRAME_BLOCK, BlockRegistry.CRATE_STATION_BLOCK, BlockRegistry.CRATE_CONNECTOR_BLOCK));
+    CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.FUNCTIONAL_BLOCKS).register(content -> content.insertAfter(Items.BARREL, BlockRegistry.CRATE_BLOCK, BlockRegistry.CRATE_STATION_FRAME_BLOCK, BlockRegistry.CRATE_STATION_BLOCK, BlockRegistry.CRATE_CONNECTOR_BLOCK));
     Constants.LOG.info("- Basic Storage Loaded -");
   }
 }

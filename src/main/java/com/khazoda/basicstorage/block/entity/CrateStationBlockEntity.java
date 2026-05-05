@@ -88,7 +88,7 @@ public class CrateStationBlockEntity extends BlockEntity implements NetworkNode,
        *  Randomize next interval between 3 and 6 seconds (60-120 ticks)
        *  fallback to 5 seconds to naturally desynchronize station distributions
        */
-      currentDistributionInterval = 60 + (this.level != null ? this.level.random.nextInt(61) : 100);
+      currentDistributionInterval = 60 + (this.level != null ? this.level.getRandom().nextInt(61) : 100);
       distributeBuffer();
     }
   }

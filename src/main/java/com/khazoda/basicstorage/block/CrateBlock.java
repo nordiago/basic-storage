@@ -245,9 +245,9 @@ public class CrateBlock extends BaseEntityBlock {
     if (slot.isBlank()) {
       message = Component.translatable("message.basicstorage.crate.empty").withColor(0xffefcd);
     } else {
-      message = Component.literal(NumberFormatter.toFormattedNumber(slot.getAmount()) + " " + slot.getResource().getItem().getName().getString()).withColor(0xFFDD99);
+      message = Component.literal(NumberFormatter.toFormattedNumber(slot.getAmount()) + " " + slot.getResource().getItem().getName(slot.getResource().toStack()).getString()).withColor(0xFFDD99);
     }
-    player.displayClientMessage(message, true);
+    player.sendOverlayMessage(message);
     return InteractionResult.CONSUME;
   }
 
