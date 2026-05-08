@@ -1,7 +1,6 @@
 package com.khazoda.basicstorage.renderer;
 
 import com.khazoda.basicstorage.registry.DataComponentRegistry;
-import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import com.mojang.serialization.MapCodec;
@@ -9,7 +8,6 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.block.BlockModelRenderState;
 import net.minecraft.client.renderer.block.model.BlockDisplayContext;
@@ -30,6 +28,10 @@ import java.util.function.Consumer;
 
 @Environment(EnvType.CLIENT)
 public class CrateItemSpecialRenderer implements SpecialModelRenderer<ItemStack> {
+  /*
+   * Minecraft 26.1 no longer passes ItemDisplayContext to SpecialModelRenderer#submit.
+   * The client mixin binds it here only while this renderer is being submitted.
+   */
   public static final ScopedValue<ItemDisplayContext> CONTEXT = ScopedValue.newInstance();
   private final BlockState baseCrateState;
 

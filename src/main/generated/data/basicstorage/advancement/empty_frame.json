@@ -17,7 +17,6 @@
       "translate": "advancement.basicstorage.empty_frame.desc"
     },
     "icon": {
-      "count": 1,
       "id": "basicstorage:crate_station_frame"
     },
     "title": {

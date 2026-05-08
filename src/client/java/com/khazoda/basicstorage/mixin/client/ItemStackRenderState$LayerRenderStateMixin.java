@@ -1,7 +1,6 @@
 package com.khazoda.basicstorage.mixin.client;
 
 import com.khazoda.basicstorage.renderer.CrateItemSpecialRenderer;
-import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -25,6 +24,11 @@ public class ItemStackRenderState$LayerRenderStateMixin {
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/special/SpecialModelRenderer;submit(Ljava/lang/Object;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;IIZI)V")
     )
     private <T> void captureDisplayContext(SpecialModelRenderer<T> instance, @Nullable T t, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int i1, int i2, boolean b, int i3, Operation<Void> original) {
-        ScopedValue.where(CrateItemSpecialRenderer.CONTEXT, ((ItemStackRenderStateAccessor) this$0).basicStorage$displayContext()).run(() -> original.call(instance, t, poseStack, submitNodeCollector, i1, i2, b, i3));
+        if (instance instanceof CrateItemSpecialRenderer) {
+            ScopedValue.where(CrateItemSpecialRenderer.CONTEXT, ((ItemStackRenderStateAccessor) this$0).basicStorage$displayContext()).run(() -> original.call(instance, t, poseStack, submitNodeCollector, i1, i2, b, i3));
+            return;
+        }
+
+        original.call(instance, t, poseStack, submitNodeCollector, i1, i2, b, i3);
     }
 }

@@ -17,7 +17,6 @@
       "translate": "advancement.basicstorage.nodal_networking.desc"
     },
     "icon": {
-      "count": 1,
       "id": "basicstorage:crate_connector"
     },
     "title": {

@@ -17,7 +17,6 @@
       "translate": "advancement.basicstorage.pack_rat.desc"
     },
     "icon": {
-      "count": 1,
       "id": "basicstorage:crate"
     },
     "title": {
