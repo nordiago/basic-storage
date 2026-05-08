@@ -311,7 +311,7 @@ public class CrateNetworkManager {
           return;
         }
 
-        network.updateItemIncremental(old != null ? old.item() : null, component.item(), pos);
+        network.updateItemIncremental(old != null ? old.item() : ItemVariant.blank(), component.item(), pos);
         dirtyNetworks.add(networkId);
         notifyStations(level, networkId);
       }
