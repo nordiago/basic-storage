@@ -110,7 +110,7 @@ public class CrateNetwork {
     if (crates == null) return;
 
     for (BlockPos pos : crates) {
-      CrateSlotComponent contents = manager.getStorage(pos);
+      CrateSlotComponent contents = manager.getStorageForIndex(id, pos); //Todo: Change to .getStorage() when corrupted network fixer is removed in future
       if (contents != null) {
         /* Index all crates, including blank ones */
         ItemVariant variant = contents.item();

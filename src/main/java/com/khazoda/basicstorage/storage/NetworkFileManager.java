@@ -2,9 +2,11 @@ package com.khazoda.basicstorage.storage;
 
 import com.khazoda.basicstorage.Constants;
 import com.khazoda.basicstorage.structure.CrateSlotComponent;
+import com.mojang.serialization.DynamicOps;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.*;
+import net.minecraft.resources.RegistryOps;
 import net.minecraft.server.level.ServerLevel;
 
 import java.io.IOException;
@@ -21,8 +23,10 @@ import java.util.stream.Stream;
  */
 public class NetworkFileManager {
   private final Path networksDirectory;
+  private final ServerLevel level;
 
   public NetworkFileManager(ServerLevel level) {
+    this.level = level;
     Path worldDir = level.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT);
     this.networksDirectory = worldDir.resolve("data").resolve("basicstorage").resolve("networks");
     try {
@@ -57,7 +61,8 @@ public class NetworkFileManager {
       /* Save storage data for crates in this network */
       Set<BlockPos> crates = network.nodes.get("crate");
       if (crates != null && !crates.isEmpty()) {
-        List<ItemVariant> palette = new ArrayList<>();
+        DynamicOps<Tag> ops = registryOps();
+        List<Tag> palette = new ArrayList<>();
         Map<ItemVariant, Integer> variantToIdx = new HashMap<>();
         long[] gsPosArr = new long[crates.size()];
         int[] gsIdxArr = new int[crates.size()];
@@ -67,17 +72,25 @@ public class NetworkFileManager {
         for (BlockPos pos : crates) {
           CrateSlotComponent storage = manager.getStorage(pos);
           if (storage != null) {
+            Integer paletteIndex = variantToIdx.get(storage.item());
+            if (paletteIndex == null) {
+              Optional<Tag> encoded = ItemVariant.CODEC.encodeStart(ops, storage.item()).resultOrPartial(error -> Constants.LOG.warn("Failed to encode crate storage variant at {} in network {}: {}", pos, id, error));
+              if (encoded.isEmpty()) {
+                continue;
+              }
+
+              paletteIndex = palette.size();
+              palette.add(encoded.get());
+              variantToIdx.put(storage.item(), paletteIndex);
+            }
+
             gsPosArr[k] = pos.asLong();
-            gsIdxArr[k] = variantToIdx.computeIfAbsent(storage.item(), v -> {
-              palette.add(v);
-              return palette.size() - 1;
-            });
+            gsIdxArr[k] = paletteIndex;
             gsCountArr[k] = storage.count();
             k++;
           }
         }
 
-        /* Trim arrays if some crates had no storage */
         if (k < crates.size()) {
           gsPosArr = Arrays.copyOf(gsPosArr, k);
           gsIdxArr = Arrays.copyOf(gsIdxArr, k);
@@ -85,9 +98,7 @@ public class NetworkFileManager {
         }
 
         ListTag paletteTag = new ListTag();
-        for (ItemVariant variant : palette) {
-          ItemVariant.CODEC.encodeStart(NbtOps.INSTANCE, variant).result().ifPresent(paletteTag::add);
-        }
+        paletteTag.addAll(palette);
 
         nbt.put("storage_palette", paletteTag);
         nbt.putLongArray("storage_pos", gsPosArr);
@@ -121,9 +132,11 @@ public class NetworkFileManager {
   public LoadResult loadAllNetworks() {
     Map<UUID, CrateNetwork> networks = new ConcurrentHashMap<>();
     Map<BlockPos, CrateSlotComponent> globalStorage = new ConcurrentHashMap<>();
+    // Todo: 1 line malformed network repair
+    Set<UUID> networksNeedingStorageRepair = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     if (!Files.exists(networksDirectory)) {
-      return new LoadResult(networks, globalStorage);
+      return new LoadResult(networks, globalStorage, networksNeedingStorageRepair);
     }
 
     try (Stream<Path> files = Files.list(networksDirectory)) {
@@ -155,17 +168,40 @@ public class NetworkFileManager {
             long[] posArr = nbt.getLongArray("storage_pos").orElse(new long[0]);
             int[] idxArr = nbt.getIntArray("storage_idx").orElse(new int[0]);
             int[] countArr = nbt.getIntArray("storage_count").orElse(new int[0]);
+            //Todo: some malformed network storage repair lines below interspersed
+            int invalidStorageEntries = 0;
+            DynamicOps<Tag> ops = registryOps();
+
+            if (posArr.length != idxArr.length || posArr.length != countArr.length) {
+              networksNeedingStorageRepair.add(id);
+              Constants.LOG.warn("Network {} has mismatched storage arrays: positions={}, indexes={}, counts={}", id, posArr.length, idxArr.length, countArr.length);
+            }
 
             List<ItemVariant> palette = new ArrayList<>();
             for (Tag tag : paletteTag) {
-              ItemVariant.CODEC.parse(NbtOps.INSTANCE, tag).result().ifPresent(palette::add);
+              Optional<ItemVariant> variant = ItemVariant.CODEC.parse(ops, tag).resultOrPartial(error -> Constants.LOG.warn("Failed to decode crate storage palette entry in network {}: {}", id, error));
+              if (variant.isPresent()) {
+                palette.add(variant.get());
+              } else {
+                palette.add(null);
+                networksNeedingStorageRepair.add(id);
+              }
             }
 
             for (int i = 0; i < posArr.length && i < idxArr.length && i < countArr.length; i++) {
-              if (idxArr[i] >= 0 && idxArr[i] < palette.size()) {
+              if (idxArr[i] >= 0 && idxArr[i] < palette.size() && palette.get(idxArr[i]) != null) {
                 globalStorage.put(BlockPos.of(posArr[i]), new CrateSlotComponent(palette.get(idxArr[i]), countArr[i]));
+              } else {
+                networksNeedingStorageRepair.add(id);
+                invalidStorageEntries++;
               }
             }
+
+            if (invalidStorageEntries > 0) {
+              Constants.LOG.warn("Network {} has {} invalid storage entries that will be repaired from loaded crates", id, invalidStorageEntries);
+            }
+          } else {
+            networksNeedingStorageRepair.add(id);
           }
 
         } catch (Exception e) {
@@ -177,7 +213,7 @@ public class NetworkFileManager {
     }
 
     Constants.LOG.info("Loaded {} networks with {} storage entries", networks.size(), globalStorage.size());
-    return new LoadResult(networks, globalStorage);
+    return new LoadResult(networks, globalStorage, networksNeedingStorageRepair);
   }
 
   public void deleteNetwork(UUID id) {
@@ -189,6 +225,10 @@ public class NetworkFileManager {
     }
   }
 
-  public record LoadResult(Map<UUID, CrateNetwork> networks, Map<BlockPos, CrateSlotComponent> globalStorage) {
+  private DynamicOps<Tag> registryOps() {
+    return RegistryOps.create(NbtOps.INSTANCE, level.registryAccess());
+  }
+
+  public record LoadResult(Map<UUID, CrateNetwork> networks, Map<BlockPos, CrateSlotComponent> globalStorage, Set<UUID> networksNeedingStorageRepair) {
   }
 }

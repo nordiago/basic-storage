@@ -27,6 +27,9 @@ public class CrateNetworkManager {
   private final Set<UUID> dirtyNetworks = Collections.newSetFromMap(new ConcurrentHashMap<>());
   private final Set<UUID> networksToDelete = Collections.newSetFromMap(new ConcurrentHashMap<>());
   private final Set<UUID> networksUndergoingRebuild = Collections.newSetFromMap(new ConcurrentHashMap<>());
+  /* Todo: 2 lines temporary migration repair for malformed network storage files saved by older versions. */
+  private final Set<UUID> networksNeedingStorageRepair = Collections.newSetFromMap(new ConcurrentHashMap<>());
+  private final Set<UUID> networksUsingStorageRepair = Collections.newSetFromMap(new ConcurrentHashMap<>());
   private final ServerLevel serverLevel; // Each dimension gets its own manager
   private boolean loaded = false;
   private long lastSaveTick = 0;
@@ -73,6 +76,9 @@ public class CrateNetworkManager {
     }
 
     globalStorage.putAll(result.globalStorage());
+    // Todo: 2 lines temporary network migration repair
+    networksNeedingStorageRepair.addAll(result.networksNeedingStorageRepair());
+    networksUsingStorageRepair.addAll(result.networksNeedingStorageRepair());
 
     loaded = true;
     Constants.LOG.info("Loaded {} networks from disk", networks.size());
@@ -322,11 +328,73 @@ public class CrateNetworkManager {
     return globalStorage.getOrDefault(pos, CrateSlotComponent.DEFAULT);
   }
 
+  /* Todo: Temporary network storage repair section.
+   * Remove after the 1.21.11 -> 26.1 migration window once old malformed
+   * network files no longer need to be healed from loaded crate block entities. */
+  public CrateSlotComponent getStorageForIndex(UUID networkId, BlockPos pos) {
+    CrateSlotComponent cachedStorage = globalStorage.get(pos);
+    if (networksUsingStorageRepair.contains(networkId)) {
+      CrateSlotComponent liveStorage = getLoadedCrateStorage(pos);
+      if (liveStorage != null && !liveStorage.equals(cachedStorage)) {
+        globalStorage.put(pos, liveStorage);
+        dirtyNetworks.add(networkId);
+        notifyStations(serverLevel, networkId);
+        return liveStorage;
+      }
+    }
+
+    return getStorage(pos);
+  }
+
+  private CrateSlotComponent getLoadedCrateStorage(BlockPos pos) {
+    if (!serverLevel.isLoaded(pos)) return null;
+    if (serverLevel.getBlockEntity(pos) instanceof CrateBlockEntity crate) {
+      return crate.storage.toComponent();
+    }
+    return null;
+  }
+
+  private void repairLoadedStorage(UUID networkId) {
+    CrateNetwork network = networks.get(networkId);
+    if (network == null) return;
+
+    boolean repaired = false;
+    for (BlockPos pos : network.crates()) {
+      CrateSlotComponent liveStorage = getLoadedCrateStorage(pos);
+      if (liveStorage == null) continue;
+
+      CrateSlotComponent cachedStorage = globalStorage.get(pos);
+      if (!liveStorage.equals(cachedStorage)) {
+        globalStorage.put(pos, liveStorage);
+        repaired = true;
+      }
+    }
+
+    if (repaired) {
+      network.invalidateIndex();
+      dirtyNetworks.add(networkId);
+      notifyStations(serverLevel, networkId);
+    }
+  }
+
+  private void repairLoadedStorage() {
+    Set<UUID> pendingRepairs = new HashSet<>(networksNeedingStorageRepair);
+    networksNeedingStorageRepair.removeAll(pendingRepairs);
+
+    for (UUID networkId : pendingRepairs) {
+      repairLoadedStorage(networkId);
+    }
+  }
+
   private void notifyStations(Level level, UUID networkId) {
     pendingStationUpdates.add(networkId);
   }
 
   public void tick(Level level) {
+    if (!networksNeedingStorageRepair.isEmpty()) {
+      repairLoadedStorage();
+    }
+
     if (pendingStationUpdates.isEmpty() && dirtyNetworks.isEmpty()) return;
 
     /* Notify stations about network changes */
