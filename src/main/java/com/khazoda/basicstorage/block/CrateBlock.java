@@ -67,15 +67,11 @@ import static java.lang.Math.toIntExact;
  */
 public class CrateBlock extends BaseEntityBlock {
 
-  public static final MapCodec<CrateBlock> CODEC = simpleCodec(CrateBlock::new);
   public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
   public static final EnumProperty<FrontAndTop> ORIENTATION = BlockStateProperties.ORIENTATION;
   public static final Properties defaultSettings = getCrateSettings();
   private static Random random;
-
-  private static Properties getCrateSettings() {
-    return Properties.of().sound(SoundType.WOOD).pushReaction(PushReaction.BLOCK).instrument(NoteBlockInstrument.BASS).mapColor(MapColor.WOOD).strength(1f);
-  }
+  public static final MapCodec<CrateBlock> CODEC = simpleCodec(CrateBlock::new);
 
   public CrateBlock(Properties settings) {
     super(settings);
@@ -87,58 +83,8 @@ public class CrateBlock extends BaseEntityBlock {
     this(defaultSettings);
   }
 
-  @Override
-  public void setPlacedBy(Level world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
-    super.setPlacedBy(world, pos, state, placer, itemStack);
-    if (world instanceof ServerLevel serverLevel) {
-      CrateNetworkManager.get(serverLevel).onBlockAdded(world, pos, state);
-    }
-    world.gameEvent(placer, GameEvent.BLOCK_PLACE, pos);
-    if (!world.isClientSide()) {
-      tryConsolidateBelow(world, pos);
-    }
-  }
-
-  private void tryConsolidateBelow(Level world, BlockPos pos) {
-    BlockEntity topBe = world.getBlockEntity(pos);
-    BlockEntity bottomBe = world.getBlockEntity(pos.below());
-
-    if (topBe instanceof CrateBlockEntity topCrate && bottomBe instanceof CrateBlockEntity bottomCrate) {
-      if (topCrate.storage.isResourceBlank() || bottomCrate.storage.isResourceBlank()) return;
-      if (!topCrate.storage.getResource().equals(bottomCrate.storage.getResource())) return;
-
-      try (Transaction transaction = Transaction.openOuter()) {
-        long moved = StorageUtil.move(topCrate.storage, bottomCrate.storage, variant -> true, Constants.CRATE_MAX_COUNT, transaction);
-        if (moved > 0) {
-          transaction.commit();
-          world.playSound(null, pos, SoundRegistry.INSERT_MANY, SoundSource.BLOCKS, 1f, 1f);
-          topCrate.refresh();
-          bottomCrate.refresh();
-        }
-      }
-    }
-  }
-
-  @Override
-  public float getExplosionResistance() {
-    if (BasicStorageConfig.INSTANCE.breakWithAxeOnly() || !BasicStorageConfig.INSTANCE.canBreakIfFull()) {
-      return 3600000.0f;
-    }
-    return super.getExplosionResistance();
-  }
-
-  @Override
-  protected float getDestroyProgress(BlockState state, Player player, BlockGetter world, BlockPos pos) {
-    if (!player.mayBuild()) return 0.0f;
-    if (!BasicStorageConfig.INSTANCE.canBreakIfFull()) {
-      BlockEntity be = world.getBlockEntity(pos);
-      if (be instanceof CrateBlockEntity cbe && !cbe.storage.isBlank()) return 0.0f;
-    }
-    if (BasicStorageConfig.INSTANCE.breakWithAxeOnly()) {
-      boolean usingAxe = player.getMainHandItem().is(ItemTags.AXES);
-      if (!usingAxe) return 0.0f;
-    }
-    return super.getDestroyProgress(state, player, world, pos);
+  private static Properties getCrateSettings() {
+    return Properties.of().sound(SoundType.WOOD).pushReaction(PushReaction.BLOCK).instrument(NoteBlockInstrument.BASS).mapColor(MapColor.WOOD).strength(1f);
   }
 
   /**
@@ -159,12 +105,14 @@ public class CrateBlock extends BaseEntityBlock {
 
       if (CrateNetworkDebug.debugStickUsed(world, player, pos)) return InteractionResult.SUCCESS_SERVER;
 
-      /* Todo: remove block after migration period */
+      /* START Temporary crate orientation migration trigger.
+       * Remove after legacy crates have had a chance to rewrite ORIENTATION from FACING. */
       if (!world.isClientSide()) {
         fixLegacyState(state, world, pos);
         // Refresh the state variable to ensure method uses corrected data
         state = world.getBlockState(pos);
       }
+      /* END temporary crate orientation migration trigger. */
 
       BlockEntity be = world.getBlockEntity(pos);
       Direction facing = state.getValue(BlockStateProperties.ORIENTATION).front();
@@ -314,6 +262,80 @@ public class CrateBlock extends BaseEntityBlock {
     world.gameEvent(player, GameEvent.BLOCK_CHANGE, pos);
   }
 
+  public static Direction getFront(BlockState state) {
+    return state.getValue(FACING);
+  }
+
+  private static void fixLegacyState(BlockState state, Level world, BlockPos pos) {
+    FrontAndTop currentOrientation = state.getValue(ORIENTATION);
+    Direction legacyFacing = state.getValue(FACING);
+    if (currentOrientation != FrontAndTop.NORTH_UP) {
+      return;
+    }
+    if (legacyFacing != Direction.NORTH) {
+      Constants.LOG.warn("[Crate Migration] Fixing block at x={} y={} z={}. Legacy says '{}', but Orientation was Default.", pos.getX(), pos.getY(), pos.getZ(), legacyFacing);
+      FrontAndTop fixedOrientation = FrontAndTop.fromFrontAndTop(legacyFacing, Direction.UP);
+      BlockState fixedState = state.setValue(ORIENTATION, fixedOrientation);
+      world.setBlock(pos, fixedState, Block.UPDATE_ALL);
+
+      Constants.LOG.info("[Crate Migration] FIXED x={} y={} z={}: Rotated to '{}'", pos.getX(), pos.getY(), pos.getZ(), fixedOrientation);
+    }
+  }
+
+  @Override
+  public void setPlacedBy(Level world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
+    super.setPlacedBy(world, pos, state, placer, itemStack);
+    if (world instanceof ServerLevel serverLevel) {
+      CrateNetworkManager.get(serverLevel).onBlockAdded(world, pos, state);
+    }
+    world.gameEvent(placer, GameEvent.BLOCK_PLACE, pos);
+    if (!world.isClientSide()) {
+      tryConsolidateBelow(world, pos);
+    }
+  }
+
+  private void tryConsolidateBelow(Level world, BlockPos pos) {
+    BlockEntity topBe = world.getBlockEntity(pos);
+    BlockEntity bottomBe = world.getBlockEntity(pos.below());
+
+    if (topBe instanceof CrateBlockEntity topCrate && bottomBe instanceof CrateBlockEntity bottomCrate) {
+      if (topCrate.storage.isResourceBlank() || bottomCrate.storage.isResourceBlank()) return;
+      if (!topCrate.storage.getResource().equals(bottomCrate.storage.getResource())) return;
+
+      try (Transaction transaction = Transaction.openOuter()) {
+        long moved = StorageUtil.move(topCrate.storage, bottomCrate.storage, variant -> true, Constants.CRATE_MAX_COUNT, transaction);
+        if (moved > 0) {
+          transaction.commit();
+          world.playSound(null, pos, SoundRegistry.INSERT_MANY, SoundSource.BLOCKS, 1f, 1f);
+          topCrate.refresh();
+          bottomCrate.refresh();
+        }
+      }
+    }
+  }
+
+  @Override
+  public float getExplosionResistance() {
+    if (BasicStorageConfig.INSTANCE.breakWithAxeOnly() || !BasicStorageConfig.INSTANCE.canBreakIfFull()) {
+      return 3600000.0f;
+    }
+    return super.getExplosionResistance();
+  }
+
+  @Override
+  protected float getDestroyProgress(BlockState state, Player player, BlockGetter world, BlockPos pos) {
+    if (!player.mayBuild()) return 0.0f;
+    if (!BasicStorageConfig.INSTANCE.canBreakIfFull()) {
+      BlockEntity be = world.getBlockEntity(pos);
+      if (be instanceof CrateBlockEntity cbe && !cbe.storage.isBlank()) return 0.0f;
+    }
+    if (BasicStorageConfig.INSTANCE.breakWithAxeOnly()) {
+      boolean usingAxe = player.getMainHandItem().is(ItemTags.AXES);
+      if (!usingAxe) return 0.0f;
+    }
+    return super.getDestroyProgress(state, player, world, pos);
+  }
+
   /**
    * Handles breaking in creative mode
    */
@@ -332,10 +354,6 @@ public class CrateBlock extends BaseEntityBlock {
   @Override
   protected List<ItemStack> getDrops(BlockState state, LootParams.Builder builder) {
     return super.getDrops(state, builder);
-  }
-
-  public static Direction getFront(BlockState state) {
-    return state.getValue(FACING);
   }
 
   @Override
@@ -369,13 +387,16 @@ public class CrateBlock extends BaseEntityBlock {
       rotation = Direction.UP;
     }
 
-    /* Todo: remove block after migration period */
+    /* START Temporary crate placement compatibility state.
+     * Remove after legacy FACING no longer needs to be written alongside ORIENTATION. */
     Direction legacyFacing = facing;
     if (facing.getAxis().isVertical()) {
       legacyFacing = ctx.getHorizontalDirection().getOpposite();
     }
+    BlockState placedState = this.defaultBlockState().setValue(BlockStateProperties.ORIENTATION, FrontAndTop.fromFrontAndTop(facing, rotation)).setValue(BlockStateProperties.HORIZONTAL_FACING, legacyFacing);
+    /* END temporary crate placement compatibility state. */
 
-    return this.defaultBlockState().setValue(BlockStateProperties.ORIENTATION, FrontAndTop.fromFrontAndTop(facing, rotation)).setValue(BlockStateProperties.HORIZONTAL_FACING, legacyFacing); // Todo: remove after migration period
+    return placedState;
   }
 
   @Override
@@ -386,7 +407,8 @@ public class CrateBlock extends BaseEntityBlock {
     super.affectNeighborsAfterRemoval(state, world, pos, moved);
   }
 
-  /* Todo: remove this method after migration period */
+  /* START Temporary crate orientation migration section.
+   * Remove after legacy crates have had a chance to rewrite ORIENTATION from FACING. */
   @Override
   protected void neighborChanged(BlockState state, Level world, BlockPos pos, Block sourceBlock, @Nullable Orientation wireOrientation, boolean notify) {
     if (!world.isClientSide()) {
@@ -394,23 +416,7 @@ public class CrateBlock extends BaseEntityBlock {
     }
     super.neighborChanged(state, world, pos, sourceBlock, wireOrientation, notify);
   }
-
-  /* Todo: remove this method after migration period */
-  private static void fixLegacyState(BlockState state, Level world, BlockPos pos) {
-    FrontAndTop currentOrientation = state.getValue(ORIENTATION);
-    Direction legacyFacing = state.getValue(FACING);
-    if (currentOrientation != FrontAndTop.NORTH_UP) {
-      return;
-    }
-    if (legacyFacing != Direction.NORTH) {
-      Constants.LOG.warn("[Crate Migration] Fixing block at x={} y={} z={}. Legacy says '{}', but Orientation was Default.", pos.getX(), pos.getY(), pos.getZ(), legacyFacing);
-      FrontAndTop fixedOrientation = FrontAndTop.fromFrontAndTop(legacyFacing, Direction.UP);
-      BlockState fixedState = state.setValue(ORIENTATION, fixedOrientation);
-      world.setBlock(pos, fixedState, Block.UPDATE_ALL);
-
-      Constants.LOG.info("[Crate Migration] FIXED x={} y={} z={}: Rotated to '{}'", pos.getX(), pos.getY(), pos.getZ(), fixedOrientation);
-    }
-  }
+  /* END temporary crate orientation migration section. */
 
   @Override
   protected BlockState rotate(BlockState state, Rotation rotation) {

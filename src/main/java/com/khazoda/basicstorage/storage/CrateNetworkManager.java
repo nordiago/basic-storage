@@ -16,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class CrateNetworkManager {
   private static final Map<ServerLevel, CrateNetworkManager> INSTANCE_CACHE = new ConcurrentHashMap<>();
+  private static final int MANUAL_LEGACY_MIGRATION_BATCH_SIZE = 64;
 
   private final Map<BlockPos, UUID> blockToNetwork = new ConcurrentHashMap<>();
   private final Map<UUID, CrateNetwork> networks = new ConcurrentHashMap<>();
@@ -27,13 +28,19 @@ public class CrateNetworkManager {
   private final Set<UUID> dirtyNetworks = Collections.newSetFromMap(new ConcurrentHashMap<>());
   private final Set<UUID> networksToDelete = Collections.newSetFromMap(new ConcurrentHashMap<>());
   private final Set<UUID> networksUndergoingRebuild = Collections.newSetFromMap(new ConcurrentHashMap<>());
-  /* Todo: 2 lines temporary migration repair for malformed network storage files saved by older versions. */
+  /* START Temporary network storage repair and legacy root migration state.
+   * Remove with the matching sections below after the 1.21.11 -> 26.1 migration window. */
   private final Set<UUID> networksNeedingStorageRepair = Collections.newSetFromMap(new ConcurrentHashMap<>());
   private final Set<UUID> networksUsingStorageRepair = Collections.newSetFromMap(new ConcurrentHashMap<>());
   private final ServerLevel serverLevel; // Each dimension gets its own manager
+  private final long saveInterval; // Randomized interval for each manager to spread out save tasks
+  private long lastLegacyClaimTick = 0;
+  private boolean manualLegacyMigrationActive = false;
+  /* END temporary network storage repair and legacy root migration state. */
+  private int manualLegacyMigrationTotalFiles = 0;
+  private int manualLegacyMigrationRemainingFiles = 0;
   private boolean loaded = false;
   private long lastSaveTick = 0;
-  private final long saveInterval; // Randomized interval for each manager to spread out save tasks
 
   private CrateNetworkManager(ServerLevel level) {
     this.serverLevel = level;
@@ -55,13 +62,23 @@ public class CrateNetworkManager {
     if (manager != null) {
       manager.shutdown();
     }
+    /* START Temporary legacy root-file migration cache cleanup. */
+    if (INSTANCE_CACHE.isEmpty()) {
+      NetworkFileManager.clearLegacyClaims();
+    }
+    /* END temporary legacy root-file migration cache cleanup. */
   }
 
   private void loadFromDisk() {
     if (loaded) return;
 
     NetworkFileManager.LoadResult result = fileManager.loadAllNetworks();
+    applyLoadResult(result);
 
+    loaded = true;
+  }
+
+  private void applyLoadResult(NetworkFileManager.LoadResult result) {
     for (Map.Entry<UUID, CrateNetwork> entry : result.networks().entrySet()) {
       UUID networkId = entry.getKey();
       CrateNetwork network = entry.getValue();
@@ -76,13 +93,22 @@ public class CrateNetworkManager {
     }
 
     globalStorage.putAll(result.globalStorage());
-    // Todo: 2 lines temporary network migration repair
-    networksNeedingStorageRepair.addAll(result.networksNeedingStorageRepair());
-    networksUsingStorageRepair.addAll(result.networksNeedingStorageRepair());
-
-    loaded = true;
-    Constants.LOG.info("Loaded {} networks from disk", networks.size());
+    applyLoadRepairState(result);
   }
+
+  /* START Temporary load repair state.
+   * Claimed legacy networks are marked dirty so their first successful save
+   * writes the dimension-scoped file and archives the old root copy. */
+  private void applyLoadRepairState(NetworkFileManager.LoadResult result) {
+    Set<UUID> repairNetworks = new HashSet<>(result.networksNeedingStorageRepair());
+    repairNetworks.addAll(result.claimedLegacyNetworks());
+
+    networksNeedingStorageRepair.addAll(repairNetworks);
+    networksUsingStorageRepair.addAll(repairNetworks);
+    dirtyNetworks.addAll(result.claimedLegacyNetworks());
+    dirtyNetworks.addAll(result.networksNeedingSave());
+  }
+  /* END temporary load repair state. */
 
   /**
    * Save all dirty networks to disk.
@@ -101,14 +127,21 @@ public class CrateNetworkManager {
     for (UUID networkId : toSave) {
       CrateNetwork network = networks.get(networkId);
       if (network != null && !network.isEmpty()) {
-        fileManager.saveNetwork(networkId, network, this);
-        saved++;
+        if (fileManager.saveNetwork(networkId, network, this)) {
+          saved++;
+        } else {
+          dirtyNetworks.add(networkId);
+        }
       }
     }
 
     for (UUID networkId : toDelete) {
-      fileManager.deleteNetwork(networkId);
-      deleted++;
+      if (fileManager.deleteNetwork(networkId)) {
+        clearTemporaryMigrationState(networkId);
+        deleted++;
+      } else {
+        networksToDelete.add(networkId);
+      }
     }
 
     if (saved > 0 || deleted > 0) {
@@ -208,6 +241,7 @@ public class CrateNetworkManager {
 
     if (network != null && network.isEmpty()) {
       networks.remove(networkId);
+      clearTemporaryMigrationState(networkId);
       networksToDelete.add(networkId);
     } else if (network != null) {
       if (networksUndergoingRebuild.contains(networkId)) return;
@@ -243,6 +277,8 @@ public class CrateNetworkManager {
     CrateNetwork target = networks.computeIfAbsent(targetId, CrateNetwork::new);
     CrateNetwork source = networks.remove(sourceId);
     if (source == null) return;
+    transferTemporaryMigrationState(sourceId, targetId);
+    networksToDelete.add(sourceId);
     target.invalidateIndex();
     source.nodes.forEach((type, posSet) -> {
       for (BlockPos pos : posSet) {
@@ -257,33 +293,23 @@ public class CrateNetworkManager {
    */
   private void applyRebuildResults(ServerLevel level, AsyncNetworkRebuilder.RebuildResult result) {
     UUID oldNetworkId = result.oldNetworkId();
+    boolean oldNeedsStorageRepair = networksNeedingStorageRepair.remove(oldNetworkId);
+    boolean oldUsesStorageRepair = networksUsingStorageRepair.remove(oldNetworkId);
 
     networks.remove(oldNetworkId);
     networksToDelete.add(oldNetworkId);
 
     for (Map<String, Set<BlockPos>> networkNodes : result.newNetworkNodes()) {
-      /* Verifies at least one block from this network still exists and is valid
-       * This prevents creating ghost networks from completely stale rebuild data */
-      boolean hasValidBlock = false;
-      for (Set<BlockPos> positions : networkNodes.values()) {
-        for (BlockPos pos : positions) {
-          if (level.isLoaded(pos) && getType(level.getBlockState(pos)) != null) {
-            hasValidBlock = true;
-            break;
-          }
-        }
-        if (hasValidBlock) break;
-      }
-
-      if (!hasValidBlock) {
-        Constants.LOG.debug("Skipped creating network from stale rebuild data (no valid blocks found)");
-        continue; // Skip this network entirely
+      Map<String, Set<BlockPos>> filteredNodes = filterRebuildNodes(level, networkNodes);
+      if (filteredNodes.isEmpty()) {
+        Constants.LOG.debug("Skipped creating empty network from stale rebuild data");
+        continue;
       }
 
       UUID newId = UUID.randomUUID();
       CrateNetwork newNetwork = new CrateNetwork(newId);
 
-      for (Map.Entry<String, Set<BlockPos>> entry : networkNodes.entrySet()) {
+      for (Map.Entry<String, Set<BlockPos>> entry : filteredNodes.entrySet()) {
         Set<BlockPos> posSet = Collections.newSetFromMap(new ConcurrentHashMap<>());
         posSet.addAll(entry.getValue());
         newNetwork.nodes.put(entry.getKey(), posSet);
@@ -294,11 +320,33 @@ public class CrateNetworkManager {
       }
 
       networks.put(newId, newNetwork);
+      if (oldNeedsStorageRepair) {
+        networksNeedingStorageRepair.add(newId);
+      }
+      if (oldUsesStorageRepair) {
+        networksUsingStorageRepair.add(newId);
+      }
       dirtyNetworks.add(newId);
       notifyStations(level, newId);
     }
 
     networksUndergoingRebuild.remove(oldNetworkId); // Unlock Network
+  }
+
+  private Map<String, Set<BlockPos>> filterRebuildNodes(ServerLevel level, Map<String, Set<BlockPos>> networkNodes) {
+    Map<String, Set<BlockPos>> filteredNodes = new HashMap<>();
+    for (Map.Entry<String, Set<BlockPos>> entry : networkNodes.entrySet()) {
+      Set<BlockPos> filteredPositions = Collections.newSetFromMap(new ConcurrentHashMap<>());
+      for (BlockPos pos : entry.getValue()) {
+        if (!level.isLoaded(pos) || entry.getKey().equals(getType(level.getBlockState(pos)))) {
+          filteredPositions.add(pos);
+        }
+      }
+      if (!filteredPositions.isEmpty()) {
+        filteredNodes.put(entry.getKey(), filteredPositions);
+      }
+    }
+    return filteredNodes;
   }
 
   public void updateStorage(Level level, BlockPos pos, CrateSlotComponent component) {
@@ -311,6 +359,11 @@ public class CrateNetworkManager {
     if (networkId != null) {
       CrateNetwork network = networks.get(networkId);
       if (network != null) {
+        if (Objects.equals(old, component)) {
+          return;
+        }
+
+        dirtyNetworks.add(networkId);
 
         // Skip index update and notification if only count changed
         if (old != null && old.item().equals(component.item())) {
@@ -318,7 +371,6 @@ public class CrateNetworkManager {
         }
 
         network.updateItemIncremental(old != null ? old.item() : ItemVariant.blank(), component.item(), pos);
-        dirtyNetworks.add(networkId);
         notifyStations(level, networkId);
       }
     }
@@ -328,15 +380,20 @@ public class CrateNetworkManager {
     return globalStorage.getOrDefault(pos, CrateSlotComponent.DEFAULT);
   }
 
-  /* Todo: Temporary network storage repair section.
+  /* START Temporary network storage repair and legacy root migration section.
    * Remove after the 1.21.11 -> 26.1 migration window once old malformed
-   * network files no longer need to be healed from loaded crate block entities. */
+   * network files no longer need repair and root-level legacy files no longer
+   * need to be migrated into dimension-specific directories. */
   public CrateSlotComponent getStorageForIndex(UUID networkId, BlockPos pos) {
     CrateSlotComponent cachedStorage = globalStorage.get(pos);
     if (networksUsingStorageRepair.contains(networkId)) {
       CrateSlotComponent liveStorage = getLoadedCrateStorage(pos);
       if (liveStorage != null && !liveStorage.equals(cachedStorage)) {
         globalStorage.put(pos, liveStorage);
+        CrateNetwork network = networks.get(networkId);
+        if (network != null) {
+          network.invalidateIndex();
+        }
         dirtyNetworks.add(networkId);
         notifyStations(serverLevel, networkId);
         return liveStorage;
@@ -356,7 +413,10 @@ public class CrateNetworkManager {
 
   private void repairLoadedStorage(UUID networkId) {
     CrateNetwork network = networks.get(networkId);
-    if (network == null) return;
+    if (network == null) {
+      clearTemporaryMigrationState(networkId);
+      return;
+    }
 
     boolean repaired = false;
     for (BlockPos pos : network.crates()) {
@@ -386,16 +446,86 @@ public class CrateNetworkManager {
     }
   }
 
-  private void notifyStations(Level level, UUID networkId) {
-    pendingStationUpdates.add(networkId);
-  }
+  private void runTemporaryMigrationWork(Level level) {
+    if (level instanceof ServerLevel serverLevel && manualLegacyMigrationActive) {
+      runManualLegacyMigrationBatch(serverLevel);
+    } else if (level instanceof ServerLevel serverLevel) {
+      claimLoadedLegacyNetworks(serverLevel);
+    }
 
-  public void tick(Level level) {
     if (!networksNeedingStorageRepair.isEmpty()) {
       repairLoadedStorage();
     }
+  }
 
-    if (pendingStationUpdates.isEmpty() && dirtyNetworks.isEmpty()) return;
+  private void claimLoadedLegacyNetworks(ServerLevel level) {
+    long currentTick = level.getGameTime();
+    if (currentTick - lastLegacyClaimTick < 500) return;
+    lastLegacyClaimTick = currentTick;
+
+    NetworkFileManager.LoadResult result = fileManager.claimLegacyNetworks(createNetworkSnapshot());
+    applyLoadResult(result);
+  }
+
+  private NetworkFileManager.NetworkSnapshot createNetworkSnapshot() {
+    return NetworkFileManager.NetworkSnapshot.fromNetworks(networks);
+  }
+
+  public ManualLegacyMigrationStatus startManualLegacyMigration(ServerLevel level) {
+    if (manualLegacyMigrationActive) {
+      return new ManualLegacyMigrationStatus(false, true, manualLegacyMigrationTotalFiles, manualLegacyMigrationRemainingFiles);
+    }
+
+    int legacyFiles = fileManager.countLegacyNetworkFiles();
+    manualLegacyMigrationTotalFiles = legacyFiles;
+    manualLegacyMigrationRemainingFiles = legacyFiles;
+    manualLegacyMigrationActive = legacyFiles > 0;
+    boolean started = manualLegacyMigrationActive;
+
+    if (manualLegacyMigrationActive) {
+      runManualLegacyMigrationBatch(level);
+    }
+    return new ManualLegacyMigrationStatus(started, manualLegacyMigrationActive, manualLegacyMigrationTotalFiles, manualLegacyMigrationRemainingFiles);
+  }
+
+  public List<NetworkFileManager.LegacyMigrationTarget> findNearestLegacyMigrationTargets(BlockPos origin, int limit) {
+    return fileManager.findNearestLegacyNetworkPositions(origin, limit, createNetworkSnapshot());
+  }
+
+  private void runManualLegacyMigrationBatch(ServerLevel level) {
+    NetworkFileManager.LoadResult result = fileManager.claimLegacyNetworks(createNetworkSnapshot(), MANUAL_LEGACY_MIGRATION_BATCH_SIZE);
+    applyLoadResult(result);
+
+    manualLegacyMigrationRemainingFiles = Math.max(0, manualLegacyMigrationRemainingFiles - result.legacyFilesProcessed());
+    if (!result.hasUnclaimedLegacyFiles() || manualLegacyMigrationRemainingFiles == 0 || result.legacyFilesProcessed() == 0) {
+      manualLegacyMigrationActive = false;
+      Constants.LOG.info("{} - Manual legacy migration sweep complete: visited {} files", level.dimension().identifier(), manualLegacyMigrationTotalFiles - manualLegacyMigrationRemainingFiles);
+    }
+  }
+
+  private void clearTemporaryMigrationState(UUID networkId) {
+    networksNeedingStorageRepair.remove(networkId);
+    networksUsingStorageRepair.remove(networkId);
+  }
+
+  private void transferTemporaryMigrationState(UUID sourceId, UUID targetId) {
+    if (networksNeedingStorageRepair.remove(sourceId)) {
+      networksNeedingStorageRepair.add(targetId);
+    }
+    if (networksUsingStorageRepair.remove(sourceId)) {
+      networksUsingStorageRepair.add(targetId);
+    }
+  }
+
+  private void notifyStations(Level level, UUID networkId) {
+    pendingStationUpdates.add(networkId);
+  }
+  /* END temporary network storage repair and legacy root migration section. */
+
+  public void tick(Level level) {
+    runTemporaryMigrationWork(level);
+
+    if (pendingStationUpdates.isEmpty() && dirtyNetworks.isEmpty() && networksToDelete.isEmpty()) return;
 
     /* Notify stations about network changes */
     if (!pendingStationUpdates.isEmpty()) {
@@ -441,7 +571,6 @@ public class CrateNetworkManager {
     return network.findCratesForItem(variant, stationPos, this);
   }
 
-
   /**
    * Verifies network integrity and self-heals orphaned blocks.
    * <p>
@@ -485,7 +614,8 @@ public class CrateNetworkManager {
         UUID networkId = blockToNetwork.get(pos);
         if (networkId != null) dirtyNetworks.add(networkId);
       });
-      dirtyNetworks.addAll(emptyNetworks);
+      networksToDelete.addAll(emptyNetworks);
+      emptyNetworks.forEach(this::clearTemporaryMigrationState);
     }
 
     return healed;
@@ -547,6 +677,7 @@ public class CrateNetworkManager {
         // Remove network if now empty
         if (network.isEmpty()) {
           networks.remove(networkId);
+          clearTemporaryMigrationState(networkId);
           networksToDelete.add(networkId);
         } else {
           network.invalidateIndex();
@@ -582,22 +713,25 @@ public class CrateNetworkManager {
       UUID networkId = entry.getKey();
       CrateNetwork network = entry.getValue();
 
-      // Check if any block in this network actually exists in the world
+      boolean hasUnloadedBlock = false;
       boolean hasValidBlock = false;
       for (Set<BlockPos> positions : network.nodes.values()) {
         for (BlockPos pos : positions) {
-          if (level.isLoaded(pos)) {
-            BlockState state = level.getBlockState(pos);
-            if (getType(state) != null) {
-              hasValidBlock = true;
-              break;
-            }
+          if (!level.isLoaded(pos)) {
+            hasUnloadedBlock = true;
+            break;
+          }
+
+          BlockState state = level.getBlockState(pos);
+          if (getType(state) != null) {
+            hasValidBlock = true;
+            break;
           }
         }
-        if (hasValidBlock) break;
+        if (hasUnloadedBlock || hasValidBlock) break;
       }
 
-      if (!hasValidBlock) {
+      if (!hasUnloadedBlock && !hasValidBlock) {
         toPurge.add(networkId);
       }
     }
@@ -605,6 +739,7 @@ public class CrateNetworkManager {
     // Remove orphaned networks
     for (UUID networkId : toPurge) {
       networks.remove(networkId);
+      clearTemporaryMigrationState(networkId);
       networksToDelete.add(networkId);
       Constants.LOG.info("Purged orphaned network {}", networkId);
     }
@@ -631,6 +766,8 @@ public class CrateNetworkManager {
     dirtyNetworks.clear();
     networksUndergoingRebuild.clear();
     pendingStationUpdates.clear();
+    networksNeedingStorageRepair.clear();
+    networksUsingStorageRepair.clear();
 
     Constants.LOG.warn("RESET: Deleted all {} networks. Use recalculate to rebuild.", count);
     return count;
@@ -649,6 +786,9 @@ public class CrateNetworkManager {
       totalStations += network.stations().size();
     }
     return new NetworkStats(networks.size(), totalNodes, totalCrates, totalStations);
+  }
+
+  public record ManualLegacyMigrationStatus(boolean started, boolean running, int totalFiles, int remainingFiles) {
   }
 
   public record NetworkStats(int networkCount, int totalNodes, int totalCrates, int totalStations) {
