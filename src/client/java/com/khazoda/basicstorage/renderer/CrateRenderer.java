@@ -7,7 +7,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Font.DisplayMode;
-import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
@@ -64,7 +64,7 @@ public class CrateRenderer implements BlockEntityRenderer<CrateBlockEntity, Crat
         crateState.itemCount = 0;
         return;
       }
-      crateState.lightCoords = LevelRenderer.getLightCoords(world, neighborPos);
+      crateState.lightCoords = LightCoordsUtil.getLightCoords(world, neighborPos);
     }
 
     if (be.storage.isResourceBlank()) {
